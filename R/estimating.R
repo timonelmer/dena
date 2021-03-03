@@ -93,14 +93,14 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   #dat <- simdat2
   #formula <-  Surv(time, type) ~ Covariate1 +Covariate3 + frailty(id)
   #timeformat = "gap"
-  dat <- dat.backup
-  verbose = T
-  print.survcheck = T
+  #dat <- dat.backup
+  #verbose = T
+  #print.survcheck = T
   #AloneLag = 1
   #dat.backup <- dat
   #dat <- dat.backup
-  dateVar <- "date"
-  AloneLag = 1
+  #dateVar <- "date"
+  #AloneLag = 1
   
   # disentangle formula
   dv <- formula[[2]]
