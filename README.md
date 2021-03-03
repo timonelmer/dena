@@ -20,7 +20,6 @@ devtools::install_github("timonelmer/dena")
 
 ## Setup 
 
-`EnergyAware` is a very simple package that computes the energy consumption of a particular R task based on the CPU's power consumption (i.e., Thermal Design Power; TDP) over its active timeperiod. For this, you need to let R know what CPU model you are running the R task on or how much TDP your CPU model uses. This can be achieved in two ways:
 
 #### Use
 
