@@ -10,6 +10,7 @@ testing = F
 ###################################################
 
 #' @export
+# TODO: 1. always use 1|ID format, but with method = "EM","penalized", decide on method
 frailty.model <- function(formula, dat, # dat in long format
                  diagnostics = F, plot = F, verbose = F, ...){
     
@@ -86,21 +87,22 @@ if(testing){
 ##### competing multistate model with frailties ######
 ###################################################
 
+# TODO: 1. always use 1|ID format, but with method = "EM","penalized", decide on method
+#### TODO: implement multistate flow with and without Gap / Overlap / Teleport
 #' @param formula time argument must be in format POSIXct or gap time (numeric)
 #' @export
 multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics = F, plot = T, verbose = F, print.survcheck = T, ...){
   
-  #dat <- simdat2
-  #formula <-  Surv(time, type) ~ Covariate1 +Covariate3 + frailty(id)
-  #timeformat = "gap"
-  #dat <- dat.backup
-  #verbose = T
-  #print.survcheck = T
-  #AloneLag = 1
-  #dat.backup <- dat
-  #dat <- dat.backup
+  dat <- simdat2
+  formula <-  Surv(time, type) ~ Covariate1 +Covariate3 + frailty(id)
+  timeformat = "gap"
+  dat.backup <- dat
+  dat <- dat.backup
+  verbose = T
+  print.survcheck = T
+  AloneLag = 1
   #dateVar <- "date"
-  #AloneLag = 1
+  AloneLag = 1
   
   # disentangle formula
   dv <- formula[[2]]
@@ -138,6 +140,8 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   }
   if(verbose) cat(paste0(timeformat," time format detected"))
   
+  if(any(dat$end < dat$start)) stop("some end dates are before start dates")
+  
   
 # check if time variable is gap time or absoulte time (date)
   #TODO: 
@@ -164,8 +168,8 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   dat$end <- as.numeric(dat$date)
   if(is.null(censored)){
   cats.all <- factor(labels = c("censored",cats,"Alone"),0:(length(cats)+1))
-  dat$to <- factor(dat[,catVar],levels = 0:(length(cats)+1), labels = levels(cats.all))
   dat$from <- factor(dat[,paste0(catVar,"Lag1")],levels = 0:(length(cats)+1), labels = levels(cats.all))
+  dat$to <- factor(dat[,catVar],levels = 0:(length(cats)+1), labels = levels(cats.all))
   }else{
     cats.all <- c(cats,"Alone")
     labels <- c(cats.all[censored],cats.all[-censored])
@@ -196,18 +200,16 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
                          ifelse(frailty,paste0(" with id as ",nestVar,""))))
   
  dat <- survDatCheck(dat)
-  
-#### TODO: implement multistate flow with and without Gap / Overlap / Teleport
- View(dat[dat$FlagGap_withBefore %in% 1,c(timeVar,catVar,"date","start","end","to","from")])
- View(dat[dat$FlagOverlap_withBefore %in% 1,c(timeVar,catVar,"date","start","end","to","from")])
- View(dat[dat$FlagTeleport_withBefore %in% 1,c(timeVar,catVar,"date","start","end","to","from")])
- 
-  if(print.survcheck) print(survcheck(formula =  new.formula, data = dat[ dat$end > dat$start,],
-                                      #control = coxph.control(timefix = FALSE),
+ #View(dat[dat$FlagGap_withBefore %in% 1,c(timeVar,catVar,"date","start","end","to","from")])
+ #View(dat[dat$FlagOverlap_withBefore %in% 1,c(timeVar,catVar,"date","start","end","to","from")])
+ #View(dat[dat$FlagTeleport_withBefore %in% 1,c(timeVar,catVar,"date","start","end","to","from")])
+
+  if(print.survcheck) print(survcheck(formula =  new.formula, data = dat,
+                                      control = coxph.control(timefix = FALSE),
                                       id = id, istate = from))
   
   # estimation
-  m1 <-coxph(new.formula , data =dat[dat$end > dat$start,],
+  m1 <-coxph(new.formula , data =dat,
              id = id, istate = from,control = coxph.control(timefix = FALSE))
   tmp <- as.data.frame(summary(m1)$coefficients)
   
@@ -267,6 +269,9 @@ ggplot(tmp[!is.na(tmp$coef) & !(tmp$to %in% "Alone"),], aes(x = var, y = coef, s
 }
 
 #' @export
+# TODO: formula format (1| ID)
+# TODO: long vs short data fromat argument
+# TODO: remove plot function
 cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
     
     
