@@ -1,3 +1,8 @@
+########### DENA ############
+############################
+# Preprocessing Functions #
+##########################
+
 
 testing = F
 ## 1. add relevant variables
@@ -107,7 +112,7 @@ lagVars(dat, lags = -1:2, vars = c("a","b"), diffvars = "b", unit = "hours")
 #'                   a = runif(20, max = 10),
 #'                   b = Sys.Date()+1:20,
 #'                   cat = sample(c("X","Y","Z"), 20, replace = T))
-#' dat <- lagVarsNested(dat, lags = 1:2, nestVars = c("ID","day"),
+#' lagVarsNested(dat, lags = 1:2, nestVars = c("ID","day"),
 #'                      vars = c("a","b"), diffvars = "b", unit = "days")
 #'
 #' @seealso \code{\link{lagVars}}
@@ -119,10 +124,15 @@ lagVarsNested <- function(dat = dat, vars, nestVars, lags = 1, diffvars = NULL,
                           verbose = T){
   
   
+  # a bunch of checks
+  checkFormatDat(dat)
+  checkFormatVars(dat, vars)
+  checkFormatVars(dat, nestVar)
+  checkFormatVars(dat, diffvars)
+  
   # TODO: maybe it would be more efficient to not use the nested vars but use
   # a dummy for the first measure (i.e., for ID, burst, and day).
   
-
   #initial tests 
   if(length(nestVars) > 2)  stop(" more than 2 nestVars not supported") #TODO: support more than 2 nestVars
     
@@ -170,7 +180,7 @@ dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
                   a = runif(20, max = 10),
                   b = Sys.Date()+1:20,
                   cat = sample(c("X","Y","Z"), 20, replace = T))
-dat <- lagVarsNested(dat, lags = 1:2, nestVars = c("ID","day"),
+lagVarsNested(dat, lags = 1:2, nestVars = c("ID","day"),
               vars = c("a","b"), diffvars = "b", unit = "days")
 
 }
@@ -284,9 +294,10 @@ if(testing){
 
 #' Adding rows with left-censored data points
 #' 
+#' Depreciated, use \code{censoringData}.
 #' Creates extra rows for indicating left-censored data. 
 #' 
-#' #' @param dat data.frame containing the variables to be lagged
+#' @param dat data.frame containing the variables to be lagged
 #' @param nestVars name(s) of the columns indicating how the data is nested
 #'   (e.g., ID variable). Currently up to two \code{nestVars} are possible.
 #' @param timeVar name of the column with the time variable. Only this variable 
@@ -311,7 +322,7 @@ if(testing){
 #' @export
 insertLeftCensor <- function(dat, nestVars, timeVar, all.values = F, catVar,  catName = "(left censored)"){
   #checks
-  
+  cat("depreciated -> use censoringData function!")
   
   #processing 
   out <- list()
@@ -344,8 +355,30 @@ if(testing){
 }
 
 #insert non-interaction row after each interaction
-#' @param timeLag A positive number or vector with positive numbers indicating the time in the "not-alone" state. If a vector is provided random samples of the vector will be taken.
-#' @param insertNA A vector with the variable names that should be filled with NAs for the "not-alone" state
+
+#' creates additional rows for new categories
+#' 
+#' function to add rows for new types of observations  (e.g., Alone).
+#' 
+#' @param dat data.frame containing the relevant variables
+#' @param nestVars name(s) of the columns indicating how the data is nested
+#'   (e.g., ID variable). Currently up to two \code{nestVars} are possible.
+#' @param timeVar column name indicating the time variable
+#' @param catVar column name indicating the category variable
+#' @param insertNA A vector with the variable names that should be filled 
+#' with NAs for the "not-alone" state
+#' @param timeLag A positive number or vector with positive numbers indicating 
+#' the time in the "not-alone" state. If a vector is provided random samples of the vector will be taken.
+#' 
+#' @return data.frame with addtional rows
+#' @examples 
+#'dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
+#'                  day = rep(c(rep(1,5), rep(2,5)),2),
+#'                  a = runif(20, max = 10),
+#'                  time = Sys.time()+1:20,
+#'                  cat = sample(c("X","Y","Z"), 20, replace = T))
+#'
+#'insertAloneTime(dat, nestVars = c("ID"), timeVar = "time", catVar = "cat")
 #' @export
 insertAloneTime <- function(dat, nestVars = NULL, timeVar = "date", catVar = "alter", insertNA = NULL,timeLag = 1){
   #insertNA <-  all.vars(formula[[3]][[2]])
@@ -356,8 +389,8 @@ insertAloneTime <- function(dat, nestVars = NULL, timeVar = "date", catVar = "al
   dat.int <- dat
   dat.alone <- dat
   
-  dat.int$int <- 1
-  dat.alone$int <- 0
+  #dat.int$int <- 1
+  #dat.alone$int <- 0
   dat.alone[,timeVar] <- dat.alone[,timeVar] + sample(timeLag,1, replace = T) 
   dat.alone[,catVar] <- "Alone"
   # if(!is.null(insertNA)) dat.alone[,!(colnames(dat.alone) %in%c("rowNr","int",nestVars,timeVar,catVar) | 
@@ -379,6 +412,17 @@ if(testing){
   insertAloneTime(dat, nestVars = c("ID"), timeVar = "time", catVar = "cat")
 }
 
+# insert time between 
+#' inserting time between observations
+#' 
+#' this function inserts additional rows filling the time between (unobserved) events
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 insertTimeBetween <- function(dat, startVar = "start", endVar = "end", nestVars = NULL,catVar = "int",catName = "alone"){
   
@@ -405,6 +449,18 @@ insertTimeBetween <- function(dat, startVar = "start", endVar = "end", nestVars 
 }
 
 ### mean centering function
+
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
 meanCenteringNested <- function(dat = dat, vars, nestVars, verbose = T, na.rm = T){
   #testing
   # vars = c("a","b")
@@ -463,7 +519,18 @@ if(testing){
 
 
 
-## 2. bring into long format ##
+## long format ##
+
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 toLong <- function(dat = dat, catVar, fixed.categories = T){
   out <- list()
@@ -512,6 +579,16 @@ tmp
 
 
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 defineMorningMeasure <- function(dat, dayVar, nestVars){
   
@@ -542,6 +619,17 @@ defineMorningMeasure <- function(dat, dayVar, nestVars){
 }
 
 # window function
+
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 computeWindowVars <- function(dat, vars = vars, nestVars, FUN = "mean", window = "All", timeVar = NULL, 
                               burnIn = 0, 
@@ -589,7 +677,17 @@ if(testing){
 
 
 
-
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
 getAbsTime <- function(dat, nestVars = "id",timeVar = "time",origin = Sys.time(), verbose = T, ...){
   if(verbose) {
     #cat("Getting absolute: \n")
