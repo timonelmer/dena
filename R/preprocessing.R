@@ -4,21 +4,35 @@ testing = F
 
 # lag variables 
 #separate function for lag
-#' Illustration of crayon colors
+
+#' Lagging variables
 #'
-#' Creates a plot of the crayon colors in \code{\link{brocolors}}
+#' Creates extra column(s) with lagged variables according to the order of the data frame. 
 #'
-#' @param method2order method to order colors (\code{"hsv"} or \code{"cluster"})
-#' @param cex character expansion for the text
-#' @param mar margin parameters; vector of length 4 (see \code{\link[graphics]{par}})
+#' @param dat data.frame containing the variables to be lagged
+#' @param lags vector defining the \code{n}th lag. Positive values (e.g., 1:2) indicatw 
+#' the values from the previous rows (e.g., the values from the previous (lag = 1) observation) 
+#' should be taken. 
+#' Negative values indicate that the values from the following rows should be taken. 
+#' @param vars names of the columns in the data.frame that should be lagged
+#' @param diffvars names of columns in the data.frame of which the difference to the current row should be taken
+#' (this is particularly helpful for dealing with time variables and time differences)
+#' @param unit character value, if time variables are being lagged and the difference is taken, which time unit should be used
+#' to calculate the difference
+#' @param verbose boolean indicating about the state of the process be displayed
 #'
-#' @return None
+#' @return data.frame with new columns containing the lagged variables
 #'
-#' @examples
-#' plot_crayons()
+#' @examples 
+#' dat <- data.frame(a = runif(10, max = 10),
+#' b = Sys.Date()+1:10)
+#' lagVars(dat, lags = -1:2, vars = c("a","b"), 
+#' diffvars = "b", unit = "hours")
+#' 
+#' @seealso \code{\link{lagVarsNested}}
 #'
 #' @export
-lagVars <- function(dat, lags = lags, vars = vars, diffvars = diffvars, unit = "auto", 
+lagVars <- function(dat, lags = 1, vars = vars, diffvars = diffvars, unit = "auto", 
                     verbose = F, ...){
   if(verbose) {
     cat("Preprocessing lagging variables: \n")
@@ -54,12 +68,51 @@ lagVars <- function(dat, lags = lags, vars = vars, diffvars = diffvars, unit = "
 if(testing){
 dat <- data.frame(a = runif(10, max = 10),
                   b = Sys.Date()+1:10)
-lagVars(dat, lags = 1:2, vars = c("a","b"), diffvars = "b", unit = "hours")
+lagVars(dat, lags = -1:2, vars = c("a","b"), diffvars = "b", unit = "hours")
 }
 
 
 
 #nested lagging
+
+#' Lagging variables in nested (multilevel) data
+#'
+#' Creates extra column(s) with lagged variables according to the order of the
+#' data.frame. The argument \code{nestVars} describes with regards to which
+#' variables the data is nested. The function then creates lagged variables only
+#' within each group of the \code{nestVars}. This is particularly useful when
+#' working with multilevel data, where observations are nested, e.g., within
+#' individuals.
+#'
+#' @param dat data.frame containing the variables to be lagged
+#' @param lags vector defining the \code{n}th lag. Positive values (e.g., 1:2)
+#'   indicatw the values from the previous rows (e.g., the values from the
+#'   previous (lag = 1) observation) should be taken. Negative values indicate
+#'   that the values from the following rows should be taken.
+#' @param vars names of the columns in the data.frame that should be lagged
+#' @param nestVars name(s) of the columns indicating how the data is nested
+#'   (e.g., ID variable). Currently up to two \code{nestVars} are possible.
+#' @param diffvars names of columns in the data.frame of which the difference to
+#'   the current row should be taken (this is particularly helpful for dealing
+#'   with time variables and time differences)
+#' @param unit character value, if time variables are being lagged and the
+#'   difference is taken, which time unit should be used to calculate the
+#'   difference
+#' @param verbose boolean indicating about the state of the process be displayed
+#'
+#' @return data.frame with new columns containing the lagged variables
+#'
+#' @examples dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
+#'                   day = rep(c(rep(1,5), rep(2,5)),2),
+#'                   a = runif(20, max = 10),
+#'                   b = Sys.Date()+1:20,
+#'                   cat = sample(c("X","Y","Z"), 20, replace = T))
+#' dat <- lagVarsNested(dat, lags = 1:2, nestVars = c("ID","day"),
+#'                      vars = c("a","b"), diffvars = "b", unit = "days")
+#'
+#' @seealso \code{\link{lagVars}}
+#'
+#'
 #' @export
 lagVarsNested <- function(dat = dat, vars, nestVars, lags = 1, diffvars = NULL,
                           unit = "secs", 
@@ -69,14 +122,7 @@ lagVarsNested <- function(dat = dat, vars, nestVars, lags = 1, diffvars = NULL,
   # TODO: maybe it would be more efficient to not use the nested vars but use
   # a dummy for the first measure (i.e., for ID, burst, and day).
   
-  # dat = int
-  # vars = c("date","qual_c")
-  # nestVars = c("ID","dayID")
-  # lags = 1
-  # diffvars = "date"
-  # unit = "secs"
-  # verbose = T
-  
+
   #initial tests 
   if(length(nestVars) > 2)  stop(" more than 2 nestVars not supported") #TODO: support more than 2 nestVars
     
@@ -129,8 +175,144 @@ dat <- lagVarsNested(dat, lags = 1:2, nestVars = c("ID","day"),
 
 }
 
+#' Adding rows with censored data points
+#' 
+#' Creates extra rows for indicating left- or right-censored data. 
+#' 
+#' @param dat data.frame containing the variables to be lagged
+#' @param nestVars name(s) of the columns indicating how the data is nested
+#'   (e.g., ID variable). Currently up to two \code{nestVars} are possible.
+#' @param timeVar name of the column with the time variable. 
+#' @param eventVar name of the column indicating if an event (value = 1) happened or not/censored (0)
+#' @param catVar name of the event (for coxph or frailty) or event-type (for multi-state)
+#'  column where the indication of the censoring is stored.
+#' @param timeGap time to be added (for right-censoring) or removed (for left-censoring) form \code{timeVar}
+#' @param censoring character string \code{"right"} or \code{"left"} indicating if right- or left-
+#' censored data row should be added
+#' 
+#' @return data.frame with extra rows for censored data.
+#' 
+#' @examples  dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
+#'                   day = rep(c(rep(1,5), rep(2,5)),2),
+#'                   event = 1,
+#'                   a = runif(20, max = 10),
+#'                   t = rlnorm(20,1,.4),
+#'                   cat = sample(c("X","Y","Z"), 20, replace = T))
+#' censoringData(dat, nestVars = c("ID"), timeVar = "t")
+#' censoringData(dat, nestVars = c("ID","day"), timeVar = "t")
+
+#' censoringData(dat, nestVars = c("ID"), timeVar = "t", censoring = "left",TimeGap = 1
+#' 
 #' @export
-insertLeftCensor <- function(dat, nestVars, timeVar, catVar, all.values = F, catName = "(left censored)"){
+censoringData <- function(dat, nestVars, timeVar, eventVar = "event", 
+                          catVar = NULL, TimeGap = 1, censoring = "right", verbose =T){
+  dat$nOb <- 1:nrow(dat)
+  
+  
+  ## TODO: left censoring
+  if(length(nestVars) > 2) stop("more than two nestVars not yet supported")
+  
+  for(nv1 in unique(dat[,nestVars[1]])){
+    if(is.na(nv1))next
+    if(length(nestVars) == 1){
+        tmp.df <- dat[dat[,nestVars[1]] %in% nv1,]
+      # for only one nest Var
+      if(censoring == "right"){
+        tmp.row <- tmp.df[nrow(tmp.df),c("nOb",nestVars[1],timeVar,eventVar)]
+        tmp.row[,timeVar] <- tmp.row[,timeVar] + TimeGap
+        tmp.row[,eventVar] <- 0
+        if(!is.null(catVar)) tmp.row[,catVar] <- "right-censored" 
+        tmp.row[,"nOb"] <- max(tmp.row[,"nOb"], na.rm = T)+0.5
+        dat <- plyr::rbind.fill(dat, tmp.row)
+      }
+      if(censoring == "left"){
+        tmp.row <- tmp.df[1,c("nOb",nestVars[1],timeVar,eventVar)]
+        tmp.row[,timeVar] <- tmp.row[,timeVar] - TimeGap
+        tmp.row[,eventVar] <- 0
+        if(!is.null(catVar)) tmp.row[,catVar] <- "left-censored" 
+        tmp.row[,"nOb"] <- min(tmp.row[,"nOb"], na.rm = T)-0.5
+        dat <- plyr::rbind.fill(dat, tmp.row)
+      }
+      
+    }else{
+      for(nv2 in unique(dat[,nestVars[2]])){
+        if(is.na(nv2))next
+        # for the second layer nest Var
+          tmp.df <- dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 ,]
+        if(censoring == "right"){
+          tmp.row <- tmp.df[nrow(tmp.df),c("nOb",nestVars[1],nestVars[2],timeVar,eventVar)]
+          tmp.row[,timeVar] <- tmp.row[,timeVar] + TimeGap
+          tmp.row[,eventVar] <- 0
+          if(!is.null(catVar)) tmp.row[,catVar] <- "right-censored" 
+          tmp.row[,"nOb"] <- max(tmp.row[,"nOb"], na.rm = T)+0.5
+          dat <- plyr::rbind.fill(dat, tmp.row)
+        }
+        if(censoring == "left") {
+        tmp.row <- tmp.df[1,c("nOb",nestVars[1],nestVars[2],timeVar,eventVar)]
+        tmp.row[,timeVar] <- tmp.row[,timeVar] - TimeGap
+        tmp.row[,eventVar] <- 0
+        if(!is.null(catVar)) tmp.row[,catVar] <- "left-censored" 
+        tmp.row[,"nOb"] <- min(tmp.row[,"nOb"], na.rm = T)-0.5
+        dat <- plyr::rbind.fill(dat, tmp.row)
+        }
+      }
+      
+    }
+    if(verbose) cat(paste0("\r ",which(nv1 == unique(dat[,nestVars[1]])), 
+                           " out of ", length(unique(dat[,nestVars[1]])), " ",
+                           nestVars[1],"s"))
+  }
+  dat <- dat[order(dat$nOb),]
+  return(dat)
+}
+
+
+if(testing){
+  dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
+                    day = rep(c(rep(1,5), rep(2,5)),2),
+                    event = 1,
+                    a = runif(20, max = 10),
+                    t = rlnorm(20,1,.4),
+                    cat = sample(c("X","Y","Z"), 20, replace = T))
+  censoringData(dat, nestVars = c("ID"), timeVar = "t")
+  censoringData(dat, nestVars = c("ID","day"), timeVar = "t")
+  
+  censoringData(dat, nestVars = c("ID"), timeVar = "t", censoring = "left",TimeGap = 1)
+  
+}
+
+
+#' Adding rows with left-censored data points
+#' 
+#' Creates extra rows for indicating left-censored data. 
+#' 
+#' #' @param dat data.frame containing the variables to be lagged
+#' @param nestVars name(s) of the columns indicating how the data is nested
+#'   (e.g., ID variable). Currently up to two \code{nestVars} are possible.
+#' @param timeVar name of the column with the time variable. Only this variable 
+#' will be copied if \code{all.falues = FALSE}.
+#' @param all.values boolean if all values of the first row should be copied or only
+#' the time information (timeVar)
+#' @param catVar name of the event (for coxph or frailty) or event-type (for multi-state)
+#'  column where the indication of the left-censoring is stored.
+#' @param catName character or numeric value to be written in \code{catVar}
+#' 
+#' @return data.frame with extra rows for left-censored data.
+#' 
+#' @examples 
+#'dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
+#'                  day = rep(c(rep(1,5), rep(2,5)),2),
+#'                  a = runif(20, max = 10),
+#'                  b = Sys.Date()+1:20,
+#'                  cat = sample(c("X","Y","Z"), 20, replace = T))
+#'insertLeftCensor(dat, nestVars = c("ID","day"), 
+#'                 timeVar = "b", catVar = "cat")
+#' 
+#' @export
+insertLeftCensor <- function(dat, nestVars, timeVar, all.values = F, catVar,  catName = "(left censored)"){
+  #checks
+  
+  
   #processing 
   out <- list()
   
@@ -151,7 +333,15 @@ insertLeftCensor <- function(dat, nestVars, timeVar, catVar, all.values = F, cat
   rownames(out) <- 1:nrow(out)
   return(out) 
 }
-
+if(testing){
+  dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
+                    day = rep(c(rep(1,5), rep(2,5)),2),
+                    a = runif(20, max = 10),
+                    b = Sys.Date()+1:20,
+                    cat = sample(c("X","Y","Z"), 20, replace = T))
+  insertLeftCensor(dat, nestVars = c("ID","day"), 
+                   timeVar = "b", catVar = "cat")
+}
 
 #insert non-interaction row after each interaction
 #' @param timeLag A positive number or vector with positive numbers indicating the time in the "not-alone" state. If a vector is provided random samples of the vector will be taken.
@@ -397,67 +587,8 @@ if(testing){
 }
 
 
-# add censoredObservation
-censoringData <- function(dat, nestVars, timeVar, eventVar = "event", 
-                          catVar = NULL,addTimeGap = 1, censoring = "right", verbose =T){
-  dat$nOb <- 1:nrow(dat)
-  
-
-  ## TODO: left censoring
-  if(length(nestVars) > 2) stop("more than two nestVars not yet supported")
-  
-    for(nv1 in unique(dat[,nestVars[1]])){
-      if(is.na(nv1))next
-      if(length(nestVars) == 1){
-        # for only one nest Var
-        if(censoring == "right"){
-          tmp.df <- dat[dat[,nestVars[1]] %in% nv1,]
-          tmp.row <- tmp.df[nrow(tmp.df),c("nOb",nestVars[1],timeVar,eventVar)]
-          tmp.row[,timeVar] <- tmp.row[,timeVar] + addTimeGap
-          tmp.row[,eventVar] <- 0
-          if(!is.null(catVar)) tmp.row[,catVar] <- "right-censored" 
-          tmp.row[,"nOb"] <- max(tmp.row[,"nOb"], na.rm = T)+0.5
-          dat <- plyr::rbind.fill(dat, tmp.row)
-        }
-        if(censoring == "left") stop(" left censoring not yet implemented")
-        
-
-      }else{
-        for(nv2 in unique(dat[,nestVars[2]])){
-          if(is.na(nv2))next
-          # for the second layer nest Var
-          if(censoring == "right"){
-            tmp.df <- dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 ,]
-            tmp.row <- tmp.df[nrow(tmp.df),c("nOb",nestVars[1],nestVars[2],timeVar,eventVar)]
-            tmp.row[,timeVar] <- tmp.row[,timeVar] + addTimeGap
-            tmp.row[,eventVar] <- 0
-            if(!is.null(catVar)) tmp.row[,catVar] <- "right-censored" 
-            tmp.row[,"nOb"] <- max(tmp.row[,"nOb"], na.rm = T)+0.5
-            dat <- plyr::rbind.fill(dat, tmp.row)
-          }
-          if(censoring == "left") stop(" left censoring not yet implemented")
-        }
-        
-      }
-      if(verbose) cat(paste0("\r ",which(nv1 == unique(dat[,nestVars[1]])), 
-                             " out of ", length(unique(dat[,nestVars[1]])), " ",
-                             nestVars[1],"s"))
-    }
-  dat <- dat[order(dat$nOb),]
-  return(dat)
-}
 
 
-if(testing){
-  dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
-                    day = rep(c(rep(1,5), rep(2,5)),2),
-                    a = runif(20, max = 10),
-                    t = rlnorm(20,1,.4),
-                    cat = sample(c("X","Y","Z"), 20, replace = T))
-  censoringData(dat, nestVars = c("ID"), timeVar = "t")
-  censoringData(dat, nestVars = c("ID","day"), timeVar = "t")
-  
-}
 
 getAbsTime <- function(dat, nestVars = "id",timeVar = "time",origin = Sys.time(), verbose = T, ...){
   if(verbose) {
@@ -467,12 +598,13 @@ getAbsTime <- function(dat, nestVars = "id",timeVar = "time",origin = Sys.time()
   for(nv1 in unique(dat[,nestVars[[1]]])){
     #nv1 = 1
     tmp <- dat[dat[,nestVars[1]] %in% nv1,]
-    dat[dat[,nestVars[1]] %in% nv1,"date"][1] <- origin + tmp[1, timeVar]
+    dat[dat[,nestVars[1]] %in% nv1,"date"][1] <- tmp[1,"date"] <- origin + tmp[1, timeVar]
     for(row in 2:nrow(tmp)){
-      dat[dat[,nestVars[1]] %in% nv1,"date"][row] <- tmp[row-1,"date"] +
+      dat[dat[,nestVars[1]] %in% nv1,"date"][row] <-  tmp[row,"date"] <- tmp[row-1,"date"] +
         tmp[row,timeVar]
     }
     if(verbose) setTxtProgressBar(pb, which(nv1 == unique(dat[,nestVars[[1]]])))
   }
   return(dat)
 }
+
