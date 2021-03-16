@@ -8,7 +8,7 @@
 usethis::use_package("ggplot2")
 usethis::use_package("survival")
 testing = F
-
+.onLoad <- function(...) packageStartupMessage(paste0("dena version ", Sys.Date()))
 
 #####################################################
 ##### basic frailty model with one event type ######

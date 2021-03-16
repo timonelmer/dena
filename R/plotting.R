@@ -1,6 +1,16 @@
 # plotting #
 testing = F 
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 plot.coxph <- function(fit, fontsize = 12){
   require(ggplot2)
@@ -24,7 +34,16 @@ plot.coxph <- function(fit, fontsize = 12){
     coord_flip()
 }
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
 #' @param labels Vector with the labels to be displayed. Provided in the original order (i.e., before ordering)
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 plot.coxme <- function(fit, fontsize = 12, labels = NULL, order = NULL, ...){
   require(ggplot2)
@@ -52,6 +71,17 @@ plot.coxme <- function(fit, fontsize = 12, labels = NULL, order = NULL, ...){
   plot(g)
 }
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
 plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, ...){
   require(ggplot2)
   
@@ -75,6 +105,16 @@ plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, ...){
   plot(g)
 }
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 plot.denafit <- function(fit, type = "coef", ...){
   
@@ -93,6 +133,16 @@ plot.denafit <- function(fit, type = "coef", ...){
   
 }
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
 frailcor <- function(fits, datshape = "short"){
   
@@ -115,6 +165,17 @@ frailcor <- function(fits, datshape = "short"){
 }
 
 # survival function
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
 survivalFunction <- function(dat, timeVar, eventVar, verbose = F, plot = T){
   require(RColorBrewer)
   #dat = dat.sim$data[dat.sim$data$X == c(1,0),]
@@ -175,6 +236,17 @@ dat.sim <- coxed::sim.survdata(N=200, T=500, num.data.frames=1, xvars = 1,
 survivalFunction(dat.sim$data, "y")
 }
 # nestedSurvivalFunction
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
 nestedSurvivalFunction <- function(dat, nestVar, timeVar, eventVar, plot = T, verbose = F){
   meta <- data.frame()
   for(id in unique(dat[,nestVar])){
@@ -218,6 +290,86 @@ print.denafit <- function(fit, type = "none"){
     show
   }
   
+}
+
+
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
+getTransitionMatrix <- function(dat, catVar, type = "sum", categories = NULL){
+  #catVar = "alter"
+  
+  if(is.null(categories)) categories <- unique(dat[,catVar])
+  # mat <- table(from  = categories, currentstate = categories)
+  # diag(mat) <- 0
+  mat <- matrix(0, length(categories),length(categories), dimnames = list(categories, categories))
+  
+  tmp <- data.frame(from = c(NA,dat[-nrow(dat),catVar]),currentstate = dat[,catVar])
+  tmp.sum <- as.matrix(table(tmp))
+    for(i in categories){
+      for(j in categories){
+        mat[i,j] <- tmp.sum[i,j]
+      }
+    }
+  if(type == "sum") return(mat)
+  if(type == "prob") return(mat/sum(mat))
+  if(type == "rowProb") return(mat/rowSums(mat))
+  
+}
+if(testing){
+  load("../../Doktorat/Datasets/iSAHIB/iSAHIB_2021-03-16.RData")
+  #dat <- int[int$ID == 1003,]
+  
+  getTransitionMatrix(dat = int[int$ID == 1001,], catVar = "alter")
+  getTransitionMatrix(int, catVar = "alter", type = "rowProb")
+  }
+
+
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
+plotTransitionNetwork <- function(dat, catVar, type = "sum", categories = NULL, returnMat = T, title = NULL){
+  require(ggraph)
+  mat <- getTransitionMatrix(dat = dat, catVar = catVar, type = type, categories = categories)
+  
+  ggraph(mat)+
+    geom_edge_loop(aes(width = weight, label = round(weight,2), color = scale(weight), alpha = (weight/100)-.80),
+                  label_color ="black",
+                  arrow = arrow(length = unit(3, 'mm'), type = "closed"),
+                  end_cap = circle(3, 'mm')) + 
+    geom_edge_fan(aes(width = weight, label = round(weight,2), color = scale(weight), alpha = weight/100),
+                  label_color ="black",
+                  arrow = arrow(length = unit(3, 'mm'), type = "closed"),
+                  end_cap = circle(3, 'mm')) + 
+    scale_edge_width(range = c(1, 10)) + # control size of edge width
+    geom_node_point(size = 5, color = "gray20") +
+    geom_node_text(aes(label = name), fontface = "bold",  repel = TRUE) +
+    ggtitle(title)+
+    theme_void() +
+    theme(legend.position = 'none')
+}
+if(testing){
+  load("../../Doktorat/Datasets/iSAHIB/iSAHIB_2021-03-16.RData")
+  
+  plotTransitionNetwork(dat = int[int$ID == 1001,], title = "ID = 1001", catVar = "alter")
+  plotTransitionNetwork(dat = int[int$ID == 1001,], title = "ID = 1001", type ="rowProb",catVar = "alter")
+  plotTransitionNetwork(dat = int, title = "ID = all", type ="sum",catVar = "alter")
 }
 
 
