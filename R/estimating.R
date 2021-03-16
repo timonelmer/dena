@@ -1,5 +1,10 @@
+########### DENA ############
+############################
+# Preprocessing Functions #
+##########################
+
 # estimating
-source("R/helpers.R")
+#source("R/helpers.R")
 usethis::use_package("ggplot2")
 usethis::use_package("survival")
 testing = F
@@ -7,7 +12,7 @@ testing = F
 
 #####################################################
 ##### basic frailty model with one event type ######
-###################################################
+################################################### 
 
 #' @export
 # TODO: 1. always use 1|ID format, but with method = "EM","penalized", decide on method
