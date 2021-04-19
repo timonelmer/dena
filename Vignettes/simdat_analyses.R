@@ -19,6 +19,7 @@ survivalFunction(dat = simdat,timeVar =  "time", eventVar = "event")
 ## fit a coxph model ##
 fit <-coxph(formula = Surv(time, event) ~ X, data = simdat)
 summary(fit)
+coxR2(fit) # computes the pseudo r-squared (based on the cox-snell method)
 
 ## Schoenfeld test for proportional hazard assumtion ##
 # should be non-significant for proportional hazard assumption to hold
@@ -37,6 +38,7 @@ m.dena <- frailty.model(Surv(time, event) ~ Covariate1 + Covariate2 + (1|id),
 summary(m.dena)
 plot(m.dena)
 plot(m.dena, type ="frailty")
+# TODO: coxR2(m.dena) # computes the pseudo r-squared (based on the cox-snell method)
 
 # check robustness of findings of a few individual only have a few observations
 # i.e., can the multilevel structure of the data "compensate" for individuals with small N?
