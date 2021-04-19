@@ -127,7 +127,7 @@ lagVarsNested <- function(dat = dat, vars, nestVars, lags = 1, diffvars = NULL,
   # a bunch of checks
   checkFormatDat(dat)
   checkFormatVars(dat, vars)
-  checkFormatVars(dat, nestVar)
+  checkFormatVars(dat, nestVars)
   checkFormatVars(dat, diffvars)
   
   # TODO: maybe it would be more efficient to not use the nested vars but use
@@ -426,6 +426,14 @@ if(testing){
 #' @export
 insertTimeBetween <- function(dat, startVar = "start", endVar = "end", nestVars = NULL,catVar = "int",catName = "alone"){
   
+  # a bunch of checks
+  checkFormatDat(dat)
+  checkFormatVars(dat, startVar)
+  checkFormatVars(dat, endVar)
+  checkFormatVars(dat, nestVars)
+  checkFormatVars(dat, catVar)
+  
+  
   for(nv1 in unique(dat[,nestVars[1]])){
     dat[dat[,nestVars[1]] %in% nv1,"obs.start"] <- dat[dat[,nestVars[1]] %in% nv1,startVar][1]
   }
@@ -462,9 +470,11 @@ insertTimeBetween <- function(dat, startVar = "start", endVar = "end", nestVars 
 #'
 #' @export
 meanCenteringNested <- function(dat = dat, vars, nestVars, verbose = T, na.rm = T){
-  #testing
-  # vars = c("a","b")
-  # nestVars = c("ID","day")
+  
+  # a bunch of checks
+  checkFormatDat(dat)
+  checkFormatVars(dat, vars)
+  checkFormatVars(dat, nestVars)
   
   if(length(nestVars) == 1){
     for(nv1 in unique(dat[,nestVars[1]])){
@@ -534,6 +544,10 @@ if(testing){
 #' @export
 toLong <- function(dat = dat, catVar, fixed.categories = T){
   out <- list()
+  
+  # a bunch of checks
+  checkFormatDat(dat)
+  checkFormatVars(dat, catVar)
   
   if(fixed.categories){
     cats <- unique(dat[,catVar],fromLast = T)

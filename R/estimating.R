@@ -20,19 +20,42 @@ frailty.model <- function(formula, dat, # dat in long format
                  diagnostics = F, plot = F, verbose = F, ...){
     
   require(survival)
-  # estimate
+  require(dplyr)
+  
+  # disentangle formula
+  dv <- formula[[2]]
+  iv <- formula[[3]]
   # check if it is a frailty model from survival package, otherwise use coxme
   eMethod <- ifelse(length(grep("frailty",sapply(formula[[3]], unlist))) > 0,"coxph","coxme")
+  
+  timeVar <- as.character(dv[[2]])
+  idVar <- ifelse(eMethod == "coxph", as.list(iv[[3]])[[2]], as.list(iv[[3]])[[2]][[3]])
+  ids <- unique(dat[,as.character(idVar)])
+  
+  
+  # estimate
   if(eMethod == "coxph"){
     m <- survival::coxph(formula, data = dat, ...)
     fit <- as.data.frame(summary(m)$coefficients)
-  
+    # require(survMisc)
+    # r2 <- sapply(rsq(m), cbind)
+    # names(r2) <- c("cod (coefficient of determination)",
+    #                   "mer (explained randomness)",
+    #                   "mev (explained variance)")
+    r2 <- coxR2(m)
   }else{
     # frailty(ID) is depreciated, preferred is coxme  https://stat.ethz.ch/pipermail/r-help/2007-April/130315.html
+    require(coxme)
     m <- coxme::coxme(formula, data = dat, ...)
     fit <- as.data.frame(coxmeTable(m)[[3]])
     fit$se2 <- fit$`se(coef)`
+    r2 <- coxR2(m)[c(1,3)]
   }
+  
+  # get frailty terms
+  frailty <- data.frame(ID = ids, frailty = m$frail)
+  # frailty <- merge(frailty, 
+  #                      dat %>% group_by_at(as.character(idVar)) %>% summarise(sum = length(as.character(idVar))))
   
   fit$coef_UB <- fit$coef + 1.96*fit$se2 
   fit$coef_LB <- fit$coef - 1.96*fit$se2 
@@ -40,22 +63,11 @@ frailty.model <- function(formula, dat, # dat in long format
   rownames(fit) <- 1:nrow(fit)
   
   if(plot){
-    g <- ggplot(fit[!is.na(fit$coef),], aes(x = var, y = coef, color = coef > 0)) +
-      geom_point(position = position_dodge(width=0.5)) +
-      geom_errorbar(aes(ymin = coef_LB, ymax = coef_UB),
-                    width = 0.2,
-                    position=position_dodge(width=0.5)) +
-      coord_flip() +
-      ylab("Coefficient") +
-      xlab("") +
-      scale_color_manual(values = c("red","forestgreen")) +
-      theme_minimal() +
-      geom_hline(yintercept = 0, linetype = "dotted") +
-      theme(axis.text.x = element_text(angle = 90), legend.position = "none") 
-    plot(g)
+    if(eMethod == "coxph") plot.coxph(m)
+    if(eMethod == "coxme") plot.coxme(m)
   }
   
-  out <- list(fit,m)
+  out <- list(fit,m, r2, frailty)
   class(out) <- c("list","denafit")
   attr(out,"model") <- "frailty"
   attr(out,"eMethod") <- eMethod # estimation method / package
@@ -79,6 +91,8 @@ if(testing){
   data <- dena::lagVarsNested(data, vars = c("time"), nestVars = "ID", lags = 1,
                               diffvars = "time", unit = "secs")
   
+  data$int = 1
+  
   m <- frailty.model(formula = Surv(timeDiff1,int) ~ a + frailty(ID),
            dat = data)  
   m <- frailty.model(formula = Surv(timeDiff1,int) ~ a + (1 | ID),
@@ -98,16 +112,16 @@ if(testing){
 #' @export
 multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics = F, plot = T, verbose = F, print.survcheck = T, ...){
   
-  dat <- simdat2
-  formula <-  Surv(time, type) ~ Covariate1 +Covariate3 + frailty(id)
-  timeformat = "gap"
-  dat.backup <- dat
-  dat <- dat.backup
-  verbose = T
-  print.survcheck = T
-  AloneLag = 1
-  #dateVar <- "date"
-  AloneLag = 1
+  # dat <- simdat2
+  # formula <-  Surv(time, type) ~ Covariate1 +Covariate3 + frailty(id)
+  # timeformat = "gap"
+  # dat.backup <- dat
+  # dat <- dat.backup
+  # verbose = T
+  # print.survcheck = T
+  # AloneLag = 1
+  # #dateVar <- "date"
+  # AloneLag = 1
   
   # disentangle formula
   dv <- formula[[2]]
@@ -217,7 +231,7 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   m1 <-coxph(new.formula , data =dat,
              id = id, istate = from,control = coxph.control(timefix = FALSE))
   tmp <- as.data.frame(summary(m1)$coefficients)
-  
+
   for(i in 1:nrow(tmp)){
     if(!is.null(nrow(summary(m1)$cmap[-1,]))){ # for one covariate
   tmp[i,"var"] <- names(which(rowSums(as.numeric(rownames(tmp))[i] ==  summary(m1)$cmap[-1,])>0))
@@ -279,10 +293,12 @@ ggplot(tmp[!is.na(tmp$coef) & !(tmp$to %in% "Alone"),], aes(x = var, y = coef, s
 # TODO: remove plot function
 cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
     
-    
+    require(survival)
 
     verbose = T
     fits <- data.frame()
+    frailty <- data.frame()
+    r2 <- data.frame()
     fit.list <- list()
     
     # formula needs to be in the format
@@ -292,13 +308,21 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
     timeVar <- dv[[2]]
     catVar <- as.character(dv[[3]])
     
+    iv <- as.list(formula)[[3]]
+    idVar <- as.list(iv[[3]])[[2]]
+    ids <- unique(dat[,as.character(idVar)])
+    cat(paste0(timeVar, " is timeVar | ",catVar, " is catVar | ", idVar, " is idVar"))
+    
     if(!(class(dat[,catVar]) %in% "factor")) dat[,catVar] <- factor(dat[,catVar])
     cats <- levels(dat[,catVar])
     cats <- cats[!is.na(cats)]
     if(verbose) cat("\n States detected:", paste(paste(seq(along=cats), cats, sep='= '), 
                                                  collapse=", "), '\n')
-    iv <- as.list(formula)[[3]]
     # some checks on the IV
+    
+    # define estimation method
+    eMethod <- "NULL"
+    if(length(grep("frailty", iv)>0)) eMethod <- "coxph"
     
     for(category in cats){
       # add category to left hand side of formula
@@ -311,7 +335,14 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
       
       # estimate 
       fit <- coxph(formula = formula.cat, data = dat)
-      
+      #TODO: implement with coxme
+      #cat("\nTODO: implement with coxme and (1| ID)")
+      require(survMisc)
+      r2[nrow(r2)+1,"category"] <- category
+      r2[nrow(r2),2:4] <- sapply(rsq(fit), cbind)
+      colnames(r2) <- c("category", "cod (coefficient of determination)",
+                              "mer (explained randomness)",
+                              "mev (explained variance)")
       # test for formula parsing with test data
      # all(coxph(Surv(timeDiff1, cat == "X") ~ a + frailty(ID), data = dat)$coefficients ==
      #    fit$coefficients)
@@ -321,11 +352,18 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
       attributes(fit)$cat <- category
       fit.list[[length(fit.list)+1]] <- fit
       #View(getS3method("summary", "coxph"))
-      fits <- rbind(fits, data.frame(var = rownames(summary(fit)$coefficients),#names(fit$coefficients),
-                                     cat = category, summary(fit)$coefficients))
-
+      fits <- rbind(fits, data.frame(var = rownames(summary.coxphTE(fit)$coefficients),
+                                     cat = category, summary.coxphTE(fit)$coefficients))
+      
+      # get frailty terms
+      tmp.frailty <- data.frame(ID = ids, 
+                                cat = category, frailty.cat = fit$frail)
+      tmp.frailty <- merge(tmp.frailty, 
+                           dat[dat[,catVar] %in% category,] %>% group_by_at(as.character(idVar)) %>% summarise(sum.cat = length(alter)))
+      
+      frailty <- rbind(frailty, tmp.frailty)
+      
     }
-    
     
     
     # old way of estimating in the long format
@@ -373,30 +411,23 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
     # }
     
     # add confidence intervals
+    if("se2" %in% colnames(fits)){
     fits$coef_UB <- fits$coef + 1.96*fits$se2 
     fits$coef_LB <- fits$coef - 1.96*fits$se2
+    }else{
+      fits$coef_UB <- fits$coef + 1.96*fits$se.coef. 
+      fits$coef_LB <- fits$coef - 1.96*fits$se.coef.
+    }
     rownames(fits) <- 1:nrow(fits)
-    #fits$sig <- starIt(fits$`Pr(>|z|)`)
-    
-   if(plot){
-     g <- ggplot(fits[!is.na(fits$coef),], aes(x = var, y = coef, color = factor(cat))) +
-        geom_point(position = position_dodge(width=0.5)) +
-        geom_errorbar(aes(ymin = coef_LB, ymax = coef_UB),
-                      width = 0.2,
-                      position=position_dodge(width=0.5)) +
-        coord_flip() +
-        ylab("Coefficient") +
-        xlab("") +
-        scale_color_manual(values = RColorBrewer::brewer.pal(n = length(unique(fits$cat)), name = "Dark2")) +
-        theme_minimal() +
-        geom_hline(yintercept = 0, linetype = "dotted") +
-        theme(axis.text.x = element_text(angle = 90))
-     plot(g)
-   }
+    if("Pr...z.." %in% colnames(fits)) fits$p <- fits$Pr...z..
+    fits$sig <- starIt(fits$p)
+   if(plot) plot.cmm(fits, stars = F)
+
     # define output object and its characteristics 
-    out <- list(fits, fit.list)
-    class(out) <- c("list","denafit")
+    out <- list(fits, fit.list, r2, frailty)
+    class(out) <- c("denafit", "list")
     attr(out,"model") <- "cmm"
+    attr(out,"eMethod") <- eMethod # estimation method / package
     
     return(out)
 }
