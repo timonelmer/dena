@@ -82,13 +82,13 @@ plot.coxme <- function(fit, fontsize = 12, labels = NULL, order = NULL, ...){
 #' @examples 
 #'
 #' @export
-plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, ...){
+plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, stars = F, ...){
   require(ggplot2)
   
   if(!is.null(labels)) fits$var <- labels 
   if(is.null(order)) order <- 1:length(unique(fits$var))
   fits$var <- factor(fits$var, levels = fits$var[1:length(unique(fits$var))][order])
-  
+  if(!stars) fits$sig <- NA 
   
   g <- ggplot(fits[!is.na(fits$coef),], aes(x = var, y = coef, color = cat)) +
     geom_point(position = position_dodge(width=0.5)) +
@@ -98,6 +98,8 @@ plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, ...){
     coord_flip() +
     ylab("Coefficient") +
     xlab("") +
+    geom_text(aes(x = var, y = coef, color = factor(cat), label = sig),
+              position = position_dodge(width=0.5)) +
     scale_color_manual("",values = RColorBrewer::brewer.pal(n = length(unique(fits$cat)), name = "Dark2")) +
     theme_minimal() +
     geom_hline(yintercept = 0, linetype = "dotted") +
@@ -133,20 +135,20 @@ plot.denafit <- function(fit, type = "coef", ...){
   
 }
 
+
 #' MAIN TITLE
 #' 
 #' initial description
 #'
-#' @param 
+#' @param datashape 
 #' 
 #' @return 
 #' 
 #' @examples 
 #'
 #' @export
-frailcor <- function(fits, datshape = "short"){
-  
-  if(datshape == "long"){
+frailcor <- function(fits, datashape = "short"){
+  if(datashape == "long"){
     frails <- data.frame(ID = NA)
     for(i in 1:length(fits)){
       tmp <- as.data.frame(fits[[i]][[1]]$frail$ID)
@@ -154,13 +156,15 @@ frailcor <- function(fits, datshape = "short"){
       colnames(tmp)[1] <- attr(fits[[i]][[1]],"cat")
       frails <- merge(frails, tmp, by = "ID", all = T)
     }
-    car::spm(frails[,-1])
+    #car::spm(frails[,-1])
     GGally::ggpairs(as.data.frame(frails[,-1])) + jtools::theme_apa()
+    #if(!return.plot) return(frails)
   }else{
-  frails <- sapply(fits, function(x) x$frail)
-  colnames(frails) <- sapply(fits, function(x) attr(x, "cat"))
-  #psych::pairs.panels(frails)
-  GGally::ggpairs(as.data.frame(frails)) + jtools::theme_apa()
+    frails <- sapply(fits, function(x) x$frail)
+    colnames(frails) <- sapply(fits, function(x) attr(x, "cat"))
+    #psych::pairs.panels(frails)
+    GGally::ggpairs(as.data.frame(frails)) + jtools::theme_apa()
+    #if(!return.plot) return(frails)
   }
 }
 
