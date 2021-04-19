@@ -476,6 +476,7 @@ meanCenteringNested <- function(dat = dat, vars, nestVars, verbose = T, na.rm = 
   checkFormatVars(dat, vars)
   checkFormatVars(dat, nestVars)
   
+  
   if(length(nestVars) == 1){
     for(nv1 in unique(dat[,nestVars[1]])){
       for(var in vars){ 
@@ -488,6 +489,8 @@ meanCenteringNested <- function(dat = dat, vars, nestVars, verbose = T, na.rm = 
         dat[dat[,nestVars[1]] == nv1,paste0(var,"_",nestVars[1],"_Mean")] <-
           mean(dat[dat[,nestVars[1]] == nv1,var], na.rm = na.rm)
       }
+      if(verbose) cat(paste0("\r ",nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]])), 
+                 " out of ", length(unique(dat[,nestVars[1]]))))
     }
   }
   if(length(nestVars) == 2){
@@ -506,11 +509,42 @@ meanCenteringNested <- function(dat = dat, vars, nestVars, verbose = T, na.rm = 
             paste0(var,"_",nestVars[1],nestVars[2],"_Mean")] <- 
           mean(dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2,var], na.rm = na.rm)
       }
-        
+        if(verbose) cat(paste0("\r ",nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]])), 
+                               " out of ", length(unique(dat[,nestVars[1]]))), " | ",
+                        nestVars[2]," ",which(nv2 == unique(dat[,nestVars[2]])), 
+                        " out of ", length(unique(dat[,nestVars[2]])))
+                        
       }
     }
   }
-  if(length(nestVars) > 2){stop("nested centering not implemented for more than 2 variables")}
+  ### third nesting level
+  if(length(nestVars) == 3){
+    for(nv1 in unique(dat[,nestVars[1]])){
+      for(nv2 in unique(dat[dat[,nestVars[1]] == nv1,nestVars[2]])){
+        for(nv3 in unique(dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2,nestVars[3]]))
+        for(var in vars) {
+          # mean center 
+          dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3,
+              paste0(var,"_",nestVars[1],nestVars[2],nestVars[3],"_MeanC")] <- 
+            dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3,var]-
+            mean(dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3,var], 
+                 na.rm = na.rm)
+          
+          # mean 
+          dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3,
+              paste0(var,"_",nestVars[1],nestVars[2],nestVars[3],"_Mean")] <- 
+            mean(dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3,var], na.rm = na.rm)
+        }
+        if(verbose) cat(paste0("\r ",nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]])), 
+                               " out of ", length(unique(dat[,nestVars[1]]))), " | ",
+                        nestVars[2]," ",which(nv2 == unique(dat[,nestVars[2]])), 
+                        " out of ", length(unique(dat[,nestVars[2]])), " | ",
+                        nestVars[3]," ",which(nv3 == unique(dat[,nestVars[3]])), 
+                        " out of ", length(unique(dat[,nestVars[3]])))
+      }
+    }
+  }
+  if(length(nestVars) > 3){stop("nested centering not implemented for more than 3 variables")}
   
   return(dat)
 }
