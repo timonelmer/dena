@@ -525,16 +525,16 @@ meanCenteringNested <- function(dat = dat, vars, nestVars, verbose = T, na.rm = 
           if((is.na(nv1) | is.na(nv2) | is.na(nv3))) next
           for(var in vars) {
             # mean center 
-            dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3 & !is.na(dat[,var]),
+            dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 & dat[,nestVars[3]] %in% nv3,
                 paste0(var,"_",nestVars[1],nestVars[2],nestVars[3],"_MeanC")] <- 
-              dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3 & !is.na(dat[,var]),var]-
-              mean(dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3 & !is.na(dat[,var]),var], 
+              dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 & dat[,nestVars[3]] %in% nv3,var]-
+              mean(dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 & dat[,nestVars[3]] %in% nv3 ,var], 
                    na.rm = na.rm)
             
             # mean 
-            dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3 & !is.na(dat[,var]),
+            dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 & dat[,nestVars[3]] %in% nv3 ,
                 paste0(var,"_",nestVars[1],nestVars[2],nestVars[3],"_Mean")] <- 
-              mean(dat[dat[,nestVars[1]] == nv1 & dat[,nestVars[2]] == nv2 & dat[,nestVars[3]] == nv3 & !is.na(dat[,var]),var], na.rm = na.rm)
+              mean(dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 & dat[,nestVars[3]] %in% nv3 ,var], na.rm = na.rm)
           }
           if(verbose) cat(paste0("\r ",nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]])), 
                                  " out of ", length(unique(dat[,nestVars[1]]))), " | ",
@@ -545,6 +545,7 @@ meanCenteringNested <- function(dat = dat, vars, nestVars, verbose = T, na.rm = 
         }
       }
     }
+  }
     if(length(nestVars) > 3){stop("nested centering not implemented for more than 3 variables")}
     
     return(dat)
@@ -681,8 +682,8 @@ defineMorningMeasure <- function(dat, dayVar, nestVars){
 #' @examples 
 #'
 #' @export
-computeWindowVars <- function(dat, vars = vars, nestVars, FUN = "mean", window = "All", timeVar = NULL, 
-                              burnIn = 0, 
+computeWindowVars <- function(dat, vars = vars, nestVars = NULL, FUN = "mean", window = "All", timeVar = NULL, 
+                              burnIn = 0, na.rm = F, onlyNewVarsOut = F, 
                     verbose = F, ...){
   
  # window <- 2
@@ -690,11 +691,17 @@ computeWindowVars <- function(dat, vars = vars, nestVars, FUN = "mean", window =
   
   # create new variables
   dat[,paste0(vars,"_",FUN,"_window",window)] <- NA
+  if(is.null(nestVars)){
+    dat[,"tmpID"] <- 1
+    nestVars <- "tmpID"
+  }
   
-  if(length(nestVars) > 1) stop("More than one nestVar currently not supported")
+  if(length(nestVars) > 3) stop("More than three nestVar currently not supported")
   if(window != "All") burnIn = 0 # remove burning for window variables
   
-  for(nv1 in unique(dat[,nestVars[1]])){
+  
+  ### for 1 nested variable ####
+  if(length(nestVars) == 1) for(nv1 in unique(dat[,nestVars[1]])){
     if(is.na(nv1)) next
   if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]]))," out of ",length(unique(dat[,nestVars[1]]))))
   tmp <- dat[dat[,nestVars[1]] %in% nv1,]
@@ -707,21 +714,94 @@ computeWindowVars <- function(dat, vars = vars, nestVars, FUN = "mean", window =
       #only compute function when burnIn value is reached
         var.dat <- tmp[window.start:(row-1),var]
         if(sum(!is.na(var.dat)) > burnIn){
-          dat[dat[,nestVars[1]] %in% nv1,paste0(var,"_",FUN,"_window",window)][row] <- do.call(FUN, list(var.dat))
+          dat[dat[,nestVars[1]] %in% nv1,paste0(var,"_",FUN,"_window",window)][row] <- do.call(FUN, c(list(var.dat), list(na.rm = na.rm)))
         }
     }
   }
   }
-  return(dat)  
+  
+  
+  ### for 2 nested variables #####
+  if(length(nestVars) == 2) for(nv1 in unique(dat[,nestVars[1]])){
+    if(is.na(nv1)) next
+    tmp <- dat[dat[,nestVars[1]] %in% nv1,]
+    for(nv2 in unique(tmp[,nestVars[2]])){
+      if(is.na(nv2)) next
+      tmp <- tmp[tmp[,nestVars[2]] %in% nv2,]
+      if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]]))," out of ",length(unique(dat[,nestVars[1]]))," | ",
+                             nestVars[2]," ",which(nv1 == unique(dat[,nestVars[2]]))," out of ",length(unique(dat[,nestVars[2]]))))
+      if(nrow(tmp) == 0) next
+      for(row in 1:nrow(tmp)){
+        for(var in vars){
+          if(window == "All"){window.start = 1}else{
+            window.start <- min(which(tmp[row,timeVar]-window <= tmp[,timeVar]))
+            if(length(window.start) == 0 | is.infinite(window.start) | window.start <= 1) next
+          }
+          #only compute function when burnIn value is reached
+          var.dat <- tmp[window.start:(row-1),var]
+          if(sum(!is.na(var.dat)) > burnIn){
+            dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2,paste0(var,"_",FUN,"_window",window)][row] <- 
+              do.call(FUN, c(list(var.dat), list(na.rm = na.rm)))
+          }
+        }
+      }
+    }
+  }
+  
+  ### for 3 nested variables #####
+  
+  if(length(nestVars) == 3) for(nv1 in unique(dat[,nestVars[1]])){
+    if(is.na(nv1)) next
+    for(nv2 in unique(dat[,nestVars[2]])){
+      if(is.na(nv2)) next
+        for(nv3 in unique(dat[,nestVars[3]])){
+          if(is.na(nv3)) next
+          tmp <- dat[dat[,nestVars[1]] %in% nv1 & 
+                       dat[,nestVars[2]] %in% nv2 &
+                       dat[,nestVars[3]] %in% nv3,]
+        if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(tmp[,nestVars[1]]))," out of ",length(unique(tmp[,nestVars[1]]))," | ",
+                               nestVars[2]," ",which(nv2 == unique(tmp[,nestVars[2]]))," out of ",length(unique(tmp[,nestVars[2]]))," | ",
+                               nestVars[3]," ",which(nv3 == unique(tmp[,nestVars[3]]))," out of ",length(unique(tmp[,nestVars[3]]))))
+        if(nrow(tmp) == 0) next
+        for(row in 1:nrow(tmp)){
+          for(var in vars){
+            if(window == "All"){window.start = 1}else{
+              window.start <- min(which(tmp[row,timeVar]-window <= tmp[,timeVar]))
+              if(length(window.start) == 0 | is.infinite(window.start) | window.start <= 1) next
+            }
+            #only compute function when burnIn value is reached
+            var.dat <- tmp[window.start:(row-1),var]
+            if(sum(!is.na(var.dat)) > burnIn){
+              dat[dat[,nestVars[1]] %in% nv1 & 
+                    dat[,nestVars[2]] %in% nv2 &
+                    dat[,nestVars[3]] %in% nv3,paste0(var,"_",FUN,"_window",window)][row] <- 
+                do.call(FUN, c(list(var.dat), list(na.rm = na.rm)))
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  
+  # output
+  
+  if(nestVars[1] == "tmpID") dat <- dat[,-which(colnames(dat) == "tmpID")]
+  if(onlyNewVarsOut){
+    return(dat[,paste0(vars,"_",FUN,"_window",window)])
+  }else{return(dat) }
 }  
 
 # example
 if(testing){
-  dat <- data.frame(a = runif(10, max = 10),
-                    b = Sys.Date()+1:10, cat = sample(c("A","B"), 10, replace = T))
-  computeWindowVars(dat, vars = c("a"))
-  computeWindowVars(dat, vars = c("a"), FUN = "sd")
-  computeWindowVars(dat, vars = c("a"), FUN = "mean", window = 2, timeVar = "b")
+  dat <- data.frame(ID = rep(1:2, each = 30), period  = rep(1:2, each = 15), a = runif(60, max = 10),
+                    b = Sys.Date()+1:60, cat = sample(c("A","B"), 60, replace = T))
+  computeWindowVars(dat, vars = "a") # without nestVar
+  computeWindowVars(dat, vars = c("a"), nestVars = "ID")
+  computeWindowVars(dat, vars = c("a"), nestVars = c("ID","period", "cat"), burnIn = 1)
+  computeWindowVars(dat, vars = c("a"), nestVars = "ID", FUN = "sd")
+  computeWindowVars(dat, vars = c("a"), nestVars = "ID", FUN = "mean", window = 2, timeVar = "b")
+  
 }
 
 

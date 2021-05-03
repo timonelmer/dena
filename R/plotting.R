@@ -180,7 +180,7 @@ frailcor <- function(fits, datashape = "short"){
 #' @examples 
 #'
 #' @export
-survivalFunction <- function(dat, timeVar, eventVar, verbose = F, plot = T){
+survivalFunction <- function(dat, timeVar, eventVar, verbose = T, plot = T){
   require(RColorBrewer)
   #dat = dat.sim$data[dat.sim$data$X == c(1,0),]
   # timeVar = "y"
@@ -190,7 +190,10 @@ survivalFunction <- function(dat, timeVar, eventVar, verbose = F, plot = T){
   if(min.t < 0) min.t <- 0 
   max.t <- max(dat[,timeVar], na.rm = T)
   meta <- data.frame(t =  (min.t-1):(max.t+1))
-  for(t in min.t:(max.t+1)){
+  #for(t in min.t:(max.t+1)){
+  times <- unique(dat[,timeVar])
+  for(t in times[order(times)]){
+    if(is.na(t)) next
     meta[meta$t == t,"prob.event"] <- nrow(dat[dat[,timeVar] < t,])/nrow(dat)
     
     if(nrow(dat[dat[,timeVar] == t,]) > 0) {
