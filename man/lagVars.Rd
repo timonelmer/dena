@@ -2,11 +2,11 @@
 % Please edit documentation in R/preprocessing.R
 \name{lagVars}
 \alias{lagVars}
-\title{Illustration of crayon colors}
+\title{Lagging variables}
 \usage{
 lagVars(
   dat,
-  lags = lags,
+  lags = 1,
   vars = vars,
   diffvars = diffvars,
   unit = "auto",
@@ -15,19 +15,36 @@ lagVars(
 )
 }
 \arguments{
-\item{method2order}{method to order colors (\code{"hsv"} or \code{"cluster"})}
+\item{dat}{data.frame containing the variables to be lagged}
 
-\item{cex}{character expansion for the text}
+\item{lags}{vector defining the \code{n}th lag. Positive values (e.g., 1:2) indicatw 
+the values from the previous rows (e.g., the values from the previous (lag = 1) observation) 
+should be taken. 
+Negative values indicate that the values from the following rows should be taken.}
 
-\item{mar}{margin parameters; vector of length 4 (see \code{\link[graphics]{par}})}
+\item{vars}{names of the columns in the data.frame that should be lagged}
+
+\item{diffvars}{names of columns in the data.frame of which the difference to the current row should be taken
+(this is particularly helpful for dealing with time variables and time differences)}
+
+\item{unit}{character value, if time variables are being lagged and the difference is taken, which time unit should be used
+to calculate the difference}
+
+\item{verbose}{boolean indicating about the state of the process be displayed}
 }
 \value{
-None
+data.frame with new columns containing the lagged variables
 }
 \description{
-Creates a plot of the crayon colors in \code{\link{brocolors}}
+Creates extra column(s) with lagged variables according to the order of the data frame.
 }
 \examples{
-plot_crayons()
+dat <- data.frame(a = runif(10, max = 10),
+b = Sys.Date()+1:10)
+lagVars(dat, lags = -1:2, vars = c("a","b"), 
+diffvars = "b", unit = "hours")
 
+}
+\seealso{
+\code{\link{lagVarsNested}}
 }
