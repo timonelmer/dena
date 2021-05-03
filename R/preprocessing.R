@@ -462,7 +462,12 @@ insertTimeBetween <- function(dat, startVar = "start", endVar = "end", nestVars 
 #' 
 #' initial description
 #'
-#' @param 
+#' @param dat a data.frame object
+#' @param vars a vector of variables names, corresponding to columns in the dat object
+#' for which the computation should be carried out
+#' @param nestVars either a character object or a vector of character objects with the column names
+#' in the dat object, indicating the nesting of the data (e.g., participant ID). Up to three nesting layers can be defined. 
+#' @param verbose should processing information be printed during the functions run time. Default is FALSE.
 #' 
 #' @return 
 #' 
@@ -634,7 +639,11 @@ tmp
 #' 
 #' initial description
 #'
-#' @param 
+
+#' @param dat a data.frame object
+#' @param dayVar 
+#' @param nestVars either a character object or a vector of character objects with the column names
+#' in the dat object, indicating the nesting of the data (e.g., participant ID). Up to three nesting layers can be defined. 
 #' 
 #' @return 
 #' 
@@ -675,11 +684,22 @@ defineMorningMeasure <- function(dat, dayVar, nestVars){
 #' 
 #' initial description
 #'
-#' @param 
+#' @param dat a data.frame object
+#' @param vars a vector of variables names, corresponding to columns in the dat object
+#' for which the computation should be carried out
+#' @param nestVars either a character object or a vector of character objects with the column names
+#' in the dat object, indicating the nesting of the data (e.g., participant ID). Up to three nesting layers can be defined. 
 #' 
-#' @return 
+#' @return a data frame with additional window variable(s)
 #' 
 #' @examples 
+#'  dat <- data.frame(ID = rep(1:2, each = 30), period  = rep(1:2, each = 15), a = runif(60, max = 10),
+#'  b = Sys.Date()+1:60, cat = sample(c("A","B"), 60, replace = T))
+#'  computeWindowVars(dat, vars = "a") # without nestVar
+#' computeWindowVars(dat, vars = c("a"), nestVars = "ID")
+#' computeWindowVars(dat, vars = c("a"), nestVars = c("ID","period", "cat"), burnIn = 1)
+#' computeWindowVars(dat, vars = c("a"), nestVars = "ID", FUN = "sd")
+#' computeWindowVars(dat, vars = c("a"), nestVars = "ID", FUN = "mean", window = 2, timeVar = "b")
 #'
 #' @export
 computeWindowVars <- function(dat, vars = vars, nestVars = NULL, FUN = "mean", window = "All", timeVar = NULL, 
@@ -759,9 +779,9 @@ computeWindowVars <- function(dat, vars = vars, nestVars = NULL, FUN = "mean", w
           tmp <- dat[dat[,nestVars[1]] %in% nv1 & 
                        dat[,nestVars[2]] %in% nv2 &
                        dat[,nestVars[3]] %in% nv3,]
-        if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(tmp[,nestVars[1]]))," out of ",length(unique(tmp[,nestVars[1]]))," | ",
-                               nestVars[2]," ",which(nv2 == unique(tmp[,nestVars[2]]))," out of ",length(unique(tmp[,nestVars[2]]))," | ",
-                               nestVars[3]," ",which(nv3 == unique(tmp[,nestVars[3]]))," out of ",length(unique(tmp[,nestVars[3]]))))
+        if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]]))," out of ",length(unique(dat[,nestVars[1]]))," | ",
+                               nestVars[2]," ",which(nv2 == unique(dat[,nestVars[2]]))," out of ",length(unique(dat[,nestVars[2]]))," | ",
+                               nestVars[3]," ",which(nv3 == unique(dat[,nestVars[3]]))," out of ",length(unique(dat[,nestVars[3]]))))
         if(nrow(tmp) == 0) next
         for(row in 1:nrow(tmp)){
           for(var in vars){
@@ -811,7 +831,11 @@ if(testing){
 #' 
 #' initial description
 #'
-#' @param 
+#' @param dat a data.frame object
+#' @param timeVar name of the column in the dat object indicating the time of observation in POSIX format.
+#' @param nestVars either a character object or a vector of character objects with the column names
+#' in the dat object, indicating the nesting of the data (e.g., participant ID). Up to three nesting layers can be defined. 
+#' @param verbose should processing information be printed during the functions run time. Default is FALSE.
 #' 
 #' @return 
 #' 
