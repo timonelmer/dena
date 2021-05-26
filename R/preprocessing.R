@@ -886,34 +886,51 @@ countEvents <- function(dat, timeVar, nestVars = NULL, window = 3600, window.lab
     dat[,nestVars] <- 1
   }
   
-# if(length(nestVars) < 3){
-#   nestVars <- c(nestVars,rep("",3-length(nestVars)))
-# }
+  # if(length(nestVars) < 3){
+  #   nestVars <- c(nestVars,rep("",3-length(nestVars)))
+  # }
   
-  if(length(nestVars) > 3) stop("currently only three level of nestVars supported")
-  for(nv1 in unique(dat[,nestVars[1]])){
-    # for(nv2 in unique(dat[nv1 == dat[,nestVars[1]], nestVars[2]])){
+  if(length(nestVars) > 2) stop("currently only two level of nestVars supported")
+  # first nesting
+  if(length(nestVars) == 1){
+    for(nv1 in unique(dat[,nestVars[1]])){
       for(row in 1:nrow(dat)){
         if(!(nv1 %in% dat[row,nestVars[1]])) next
         if(is.na(dat[row,timeVar])) next
-        tmp <- dat[dat$date %in% (dat[row,timeVar]-1):(dat[row,timeVar]-window),]
+        tmp <- dat[dat$date %in% (dat[row,timeVar]-1):(dat[row,timeVar]-window) & nv1 %in% dat[,nestVars[1]],]
         dat[row,paste0("n_events_window",window.label)] <- nrow(tmp)
-        if(verbose) cat(paste0("\r",row, " out of ", nrow(dat)))
+        if(verbose) cat(paste0("\r",row, " out of ", nrow(dat), "| ID ", nv1))
       }
-    #}
+    }
   }
-  if(nestVars == "tmpVar") dat <- dat[,!grep(nestVars,colnames(dat))]
+  # second nesting
+  if(length(nestVars) == 2){
+    for(nv1 in unique(dat[,nestVars[1]])){
+      for(nv2 in unique(dat[dat[,nestVars[1]] %in% nv1,nestVars[2]])){
+        dat[dat[,nestVars[1]] %in% nv1,paste0("n_events_window",window.label,"_",nv2)] <- 0
+        if(is.na(nv2)) next
+        for(row in 1:nrow(dat)){
+          if(!(nv1 %in% dat[row,nestVars[1]])) next
+          if(!(nv2 %in% dat[row,nestVars[2]])) next
+          if(is.na(dat[row,timeVar])) next
+          
+          tmp <- dat[dat$date %in% (dat[row,timeVar]-1):(dat[row,timeVar]-window) & 
+                       dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2,]
+          dat[row,paste0("n_events_window",window.label,"_",nv2)] <- nrow(tmp)
+        }
+        if(verbose) cat(paste0("\n","| nv1:  ", nv1," out of ", lenght(unique(dat[,nestVars[1]])),
+                               "| nv2: ", nv2))
+      }
+    }
+  }
+  if(nestVars[1] == "tmpVar") dat <- dat[,!grep(nestVars,colnames(dat))]
   return(dat)
 }
 
 if(testing){
   load("../../Doktorat/Datasets/iSAHIB/iSAHIB_2021-05-03.RData")
   out <- countEvents(int[1:100,c("ID","burst","date")], nestVars = "ID",timeVar ="date", window = 3600*2, window.label = "2h")
-  out <- data.frame()
-  for(alter in alters){
-    cat(paste0("\n",alter,"\n"))
-    out <- plyr::rbind.fill(out, countEvents(int[int$alter == alter,c("ID","burst","date","alter")], 
-                       nestVars = c("ID"),timeVar ="date", window = 3600*2, window.label = paste0("2h_",alter)))
-  }
-  out <- out[order(out$ID, out$date),]
+  out <- countEvents(int[1:100,c("ID","burst","date","alter")], 
+                     nestVars = c("ID","alter"),timeVar ="date", window = 3600*24, window.label = "24h")
+  
 }
