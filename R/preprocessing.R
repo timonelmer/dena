@@ -860,3 +860,60 @@ getAbsTime <- function(dat, nestVars = "id",timeVar = "time",origin = Sys.time()
   return(dat)
 }
 
+
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param dat a data.frame object
+#' @param timeVar name of the column in the dat object indicating the time of observation in POSIX format.
+#' @param nestVars either a character object or a vector of character objects with the column names
+#' in the dat object, indicating the nesting of the data (e.g., participant ID). Up to three nesting layers can be defined. 
+#' @param verbose should processing information be printed during the functions run time. Default is FALSE.
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
+countEvents <- function(dat, timeVar, nestVars = NULL, window = 3600, window.label = NULL, verbose = T){
+  #timeVar = "date"
+  #window = 3600
+  
+  if(is.null(window.label)) window.label <- window
+  if(is.null(nestVars)) {
+    nestVars <- "tmpVar"
+    dat[,nestVars] <- 1
+  }
+  
+# if(length(nestVars) < 3){
+#   nestVars <- c(nestVars,rep("",3-length(nestVars)))
+# }
+  
+  if(length(nestVars) > 3) stop("currently only three level of nestVars supported")
+  for(nv1 in unique(dat[,nestVars[1]])){
+    # for(nv2 in unique(dat[nv1 == dat[,nestVars[1]], nestVars[2]])){
+      for(row in 1:nrow(dat)){
+        if(!(nv1 %in% dat[row,nestVars[1]])) next
+        if(is.na(dat[row,timeVar])) next
+        tmp <- dat[dat$date %in% (dat[row,timeVar]-1):(dat[row,timeVar]-window),]
+        dat[row,paste0("n_events_window",window.label)] <- nrow(tmp)
+        if(verbose) cat(paste0("\r",row, " out of ", nrow(dat)))
+      }
+    #}
+  }
+  if(nestVars == "tmpVar") dat <- dat[,!grep(nestVars,colnames(dat))]
+  return(dat)
+}
+
+if(testing){
+  load("../../Doktorat/Datasets/iSAHIB/iSAHIB_2021-05-03.RData")
+  out <- countEvents(int[1:100,c("ID","burst","date")], nestVars = "ID",timeVar ="date", window = 3600*2, window.label = "2h")
+  out <- data.frame()
+  for(alter in alters){
+    cat(paste0("\n",alter,"\n"))
+    out <- plyr::rbind.fill(out, countEvents(int[int$alter == alter,c("ID","burst","date","alter")], 
+                       nestVars = c("ID"),timeVar ="date", window = 3600*2, window.label = paste0("2h_",alter)))
+  }
+  out <- out[order(out$ID, out$date),]
+}
