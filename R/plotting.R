@@ -180,7 +180,7 @@ frailcor <- function(fits, datashape = "short"){
 #' @examples 
 #'
 #' @export
-survivalFunction <- function(dat, timeVar, eventVar, verbose = T, plot = T){
+survivalFunction <- function(dat, timeVar, eventVar, plotType = NULL, verbose = T){
   require(RColorBrewer)
   #dat = dat.sim$data[dat.sim$data$X == c(1,0),]
   # timeVar = "y"
@@ -204,29 +204,34 @@ survivalFunction <- function(dat, timeVar, eventVar, verbose = T, plot = T){
       meta[meta$t == t,"nelson.aalen.e"] <- sum(meta[meta$t <= t,"h.atom"], na.rm = T)
       meta[meta$t == t,"kaplan.meier.e"] <- prod(1-meta[meta$t <= t,"h.atom"], na.rm = T)
     }
-    if(verbose) cat(paste0("\r  timepoint ", t, " out of ", max(dat[,timeVar], na.rm = T)))
+   # if(verbose) cat(paste0("\r  timepoint ", t, " out of ", max(dat[,timeVar], na.rm = T)))
+    if(verbose) cat(paste0("\r  timepoint ", which(t == times), " out of ", length(times)))
   }
   meta$surv.prob <- 1-meta$prob.event 
   #print(plot(meta[,c("t","surv.prob")]))
   
-  if(plot){
+  if(!is.null(plotType)){
     #kaplan-meier estimation
-    g.km <- ggplot2::ggplot(meta, ggplot2::aes(x = t, y = kaplan.meier.e)) + ggplot2::geom_point() + ggplot2::theme_minimal()  +
+    if(plotType == "Kaplan-Meier") {g.km <- ggplot2::ggplot(meta[!is.na(meta$surv.prob),], ggplot2::aes(x = t, y = kaplan.meier.e)) + ggplot2::geom_point() + ggplot2::theme_minimal()  +
       ggplot2::geom_line() + ggplot2::ylab("Kaplan-Meier estimate") +
+      geom_line() +
       ggplot2::xlab("Time passed since last event")  #+ geom_smooth()
-    plot(g.km)
+    plot(g.km)}
     
     #nelson.aalen estimation
-    g.na <- ggplot2::ggplot(meta, ggplot2::aes(x = t, y = nelson.aalen.e)) + ggplot2::geom_point() + ggplot2::theme_minimal()  +
+    if(plotType == "Nelson-Aalen") {g.na <- ggplot2::ggplot(meta[!is.na(meta$surv.prob),], ggplot2::aes(x = t, y = nelson.aalen.e)) + ggplot2::geom_point() + ggplot2::theme_minimal()  +
       ggplot2::ylab("Nelson-Aalen estimate") +
+      geom_line() +
       ggplot2::xlab("Time passed since last event")  #+ geom_smooth()
-    plot(g.na)
+    plot(g.na)}
     
     # surv.plot
-    g.s <- ggplot2::ggplot(meta, ggplot2::aes(x = t, y = surv.prob)) + ggplot2::geom_point() + ggplot2::theme_minimal()  +
-      ggplot2::ylab("Survival probability / Still alone probabilty") +
-      ggplot2::xlab("Time passed since last event")  #+ geom_smooth()
-    plot(g.s)
+    if(plotType == "Survival") {g.s <- ggplot2::ggplot(meta[!is.na(meta$surv.prob),], ggplot2::aes(x = t, y = surv.prob)) + 
+      ggplot2::geom_point() + ggplot2::theme_minimal()  +
+      geom_line() +
+      ggplot2::ylab("Survival probability S(t)") +
+      ggplot2::xlab("Time passed since last event (T)")  #+ geom_smooth()
+    plot(g.s)}
   }
   return(meta)
 }
@@ -241,6 +246,8 @@ dat.sim <- coxed::sim.survdata(N=200, T=500, num.data.frames=1, xvars = 1,
                         beta=c(2))
 
 survivalFunction(dat.sim$data, "y")
+
+survivalFunction(int[int$ID %in% 1000,], "date", "event", plot = T)
 }
 # nestedSurvivalFunction
 #' MAIN TITLE
@@ -315,17 +322,20 @@ getTransitionMatrix <- function(dat, catVar, type = "sum", categories = NULL){
   #catVar = "alter"
   
   if(is.null(categories)) categories <- unique(dat[,catVar])
-  # mat <- table(from  = categories, currentstate = categories)
-  # diag(mat) <- 0
+   mat <- table(from  = categories, currentstate = categories)
+   diag(mat) <- 0
   mat <- matrix(0, length(categories),length(categories), dimnames = list(categories, categories))
   
   tmp <- data.frame(from = c(NA,dat[-nrow(dat),catVar]),currentstate = dat[,catVar])
+  
+  #mat <- as.matrix(table(tmp))
   tmp.sum <- as.matrix(table(tmp))
     for(i in categories){
       for(j in categories){
         mat[i,j] <- tmp.sum[i,j]
       }
     }
+  
   if(type == "sum") return(mat)
   if(type == "prob") return(mat/sum(mat))
   if(type == "rowProb") return(mat/rowSums(mat))
@@ -334,8 +344,12 @@ getTransitionMatrix <- function(dat, catVar, type = "sum", categories = NULL){
 if(testing){
   load("../../Doktorat/Datasets/iSAHIB/iSAHIB_2021-03-16.RData")
   #dat <- int[int$ID == 1003,]
-  
   getTransitionMatrix(dat = int[int$ID == 1001,], catVar = "alter")
+  msm::statetable.msm(alter, ID, data=int[int$ID == 1001,])
+  
+  getTransitionMatrix(dat = int[1:3,], catVar = "alter")
+  msm::statetable.msm(alter, ID, data=int[1:3,])
+  
   getTransitionMatrix(int, catVar = "alter", type = "rowProb")
   }
 
