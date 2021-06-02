@@ -1,5 +1,8 @@
 
 #' @export
+done <- function() system("say done")
+
+#' @export
 starIt <- function(x){
   ifelse(x > 0.05, "", ifelse(x > 0.01, "*", ifelse(x > 0.001, "**","***")))
 }
