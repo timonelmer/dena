@@ -225,45 +225,49 @@ censoringData <- function(dat, nestVars, timeVar, eventVar = "event",
   for(nv1 in unique(dat[,nestVars[1]])){
     if(is.na(nv1))next
     if(length(nestVars) == 1){
-        tmp.df <- dat[dat[,nestVars[1]] %in% nv1,]
+      tmp.df <- dat[dat[,nestVars[1]] %in% nv1,]
       # for only one nest Var
       if(censoring == "right"){
-        tmp.row <- tmp.df[nrow(tmp.df),c("nOb",nestVars[1],timeVar,eventVar)]
+        tmp.row <- tmp.df[nrow(tmp.df),]
+        tmp.row[,!(colnames(tmp.row) %in%c("nOb",nestVars[1],nestVars[2],timeVar,eventVar))] <- NA
         tmp.row[,timeVar] <- tmp.row[,timeVar] + TimeGap
         tmp.row[,eventVar] <- 0
         if(!is.null(catVar)) tmp.row[,catVar] <- "right-censored" 
         tmp.row[,"nOb"] <- max(tmp.row[,"nOb"], na.rm = T)+0.5
-        dat <- plyr::rbind.fill(dat, tmp.row)
+        dat <- rbind(dat, tmp.row)
       }
       if(censoring == "left"){
-        tmp.row <- tmp.df[1,c("nOb",nestVars[1],timeVar,eventVar)]
+        tmp.row <- tmp.df[1,]
+        tmp.row[,!(colnames(tmp.row) %in%c("nOb",nestVars[1],nestVars[2],timeVar,eventVar))] <- NA
         tmp.row[,timeVar] <- tmp.row[,timeVar] - TimeGap
         tmp.row[,eventVar] <- 0
         if(!is.null(catVar)) tmp.row[,catVar] <- "left-censored" 
         tmp.row[,"nOb"] <- min(tmp.row[,"nOb"], na.rm = T)-0.5
-        dat <- plyr::rbind.fill(dat, tmp.row)
+        dat <- rbind(dat, tmp.row)
       }
       
     }else{
       for(nv2 in unique(dat[,nestVars[2]])){
         if(is.na(nv2))next
         # for the second layer nest Var
-          tmp.df <- dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 ,]
+        tmp.df <- dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 ,]
         if(censoring == "right"){
-          tmp.row <- tmp.df[nrow(tmp.df),c("nOb",nestVars[1],nestVars[2],timeVar,eventVar)]
+          tmp.row <- tmp.df[nrow(tmp.df),]
+          tmp.row[,!(colnames(tmp.row) %in%c("nOb",nestVars[1],nestVars[2],timeVar,eventVar))] <- NA
           tmp.row[,timeVar] <- tmp.row[,timeVar] + TimeGap
           tmp.row[,eventVar] <- 0
           if(!is.null(catVar)) tmp.row[,catVar] <- "right-censored" 
           tmp.row[,"nOb"] <- max(tmp.row[,"nOb"], na.rm = T)+0.5
-          dat <- plyr::rbind.fill(dat, tmp.row)
+          dat <- rbind(dat, tmp.row)
         }
         if(censoring == "left") {
-        tmp.row <- tmp.df[1,c("nOb",nestVars[1],nestVars[2],timeVar,eventVar)]
-        tmp.row[,timeVar] <- tmp.row[,timeVar] - TimeGap
-        tmp.row[,eventVar] <- 0
-        if(!is.null(catVar)) tmp.row[,catVar] <- "left-censored" 
-        tmp.row[,"nOb"] <- min(tmp.row[,"nOb"], na.rm = T)-0.5
-        dat <- plyr::rbind.fill(dat, tmp.row)
+          tmp.row <- tmp.df[1,]
+          tmp.row[,!(colnames(tmp.row) %in%c("nOb",nestVars[1],nestVars[2],timeVar,eventVar))] <- NA
+          tmp.row[,timeVar] <- tmp.row[,timeVar] - TimeGap
+          tmp.row[,eventVar] <- 0
+          if(!is.null(catVar)) tmp.row[,catVar] <- "left-censored" 
+          tmp.row[,"nOb"] <- min(tmp.row[,"nOb"], na.rm = T)-0.5
+          dat <- rbind(dat, tmp.row)
         }
       }
       
@@ -276,13 +280,13 @@ censoringData <- function(dat, nestVars, timeVar, eventVar = "event",
   return(dat)
 }
 
-
 if(testing){
   dat <- data.frame(ID = c(rep(1,10), rep(2,10)),
                     day = rep(c(rep(1,5), rep(2,5)),2),
                     event = 1,
                     a = runif(20, max = 10),
-                    t = rlnorm(20,1,.4),
+                    t = as.POSIXct(rlnorm(20,1,.4)+Sys.Date()),
+                    
                     cat = sample(c("X","Y","Z"), 20, replace = T))
   censoringData(dat, nestVars = c("ID"), timeVar = "t")
   censoringData(dat, nestVars = c("ID","day"), timeVar = "t")
@@ -704,9 +708,9 @@ defineMorningMeasure <- function(dat, dayVar, nestVars){
 #' @export
 computeWindowVars <- function(dat, vars = vars, nestVars = NULL, FUN = "mean", window = "All", timeVar = NULL, 
                               burnIn = 0, na.rm = F, onlyNewVarsOut = F, 
-                    verbose = F, ...){
+                              verbose = F, ...){
   
- # window <- 2
+  # window <- 2
   # TODO: get window format right, i.e., transform timeVar and window so that they are compatible
   
   # create new variables
@@ -723,21 +727,22 @@ computeWindowVars <- function(dat, vars = vars, nestVars = NULL, FUN = "mean", w
   ### for 1 nested variable ####
   if(length(nestVars) == 1) for(nv1 in unique(dat[,nestVars[1]])){
     if(is.na(nv1)) next
-  if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]]))," out of ",length(unique(dat[,nestVars[1]]))))
-  tmp <- dat[dat[,nestVars[1]] %in% nv1,]
-  for(row in 1:nrow(tmp)){
+    if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]]))," out of ",length(unique(dat[,nestVars[1]]))))
+    tmp <- dat[dat[,nestVars[1]] %in% nv1,]
+    for(row in 1:nrow(tmp)){
       for(var in vars){
-      if(window == "All"){window.start = 1}else{
-        window.start <- min(which(tmp[row,timeVar]-window <= tmp[,timeVar]))
-        if(length(window.start) == 0 | is.infinite(window.start) | window.start <= 1) next
-      }
-      #only compute function when burnIn value is reached
+        if(window == "All"){window.start = 1}else{
+          window.start <- min(which(tmp[row,timeVar]-window <= tmp[,timeVar]))
+          if(length(window.start) == 0 | is.infinite(window.start) | window.start <= 1) next
+        }
+        #only compute function when burnIn value is reached
         var.dat <- tmp[window.start:(row-1),var]
         if(sum(!is.na(var.dat)) > burnIn){
-          dat[dat[,nestVars[1]] %in% nv1,paste0(var,"_",FUN,"_window",window)][row] <- do.call(FUN, c(list(var.dat), list(na.rm = na.rm)))
+          if(FUN == "length") dat[dat[,nestVars[1]] %in% nv1,paste0(var,"_",FUN,"_window",window)][row] <- do.call(FUN, c(list(var.dat))) else
+            dat[dat[,nestVars[1]] %in% nv1,paste0(var,"_",FUN,"_window",window)][row] <- do.call(FUN, c(list(var.dat), list(na.rm = na.rm)))
         }
+      }
     }
-  }
   }
   
   
@@ -774,11 +779,11 @@ computeWindowVars <- function(dat, vars = vars, nestVars = NULL, FUN = "mean", w
     if(is.na(nv1)) next
     for(nv2 in unique(dat[,nestVars[2]])){
       if(is.na(nv2)) next
-        for(nv3 in unique(dat[,nestVars[3]])){
-          if(is.na(nv3)) next
-          tmp <- dat[dat[,nestVars[1]] %in% nv1 & 
-                       dat[,nestVars[2]] %in% nv2 &
-                       dat[,nestVars[3]] %in% nv3,]
+      for(nv3 in unique(dat[,nestVars[3]])){
+        if(is.na(nv3)) next
+        tmp <- dat[dat[,nestVars[1]] %in% nv1 & 
+                     dat[,nestVars[2]] %in% nv2 &
+                     dat[,nestVars[3]] %in% nv3,]
         if(verbose) cat(paste0("\r ", nestVars[1]," ",which(nv1 == unique(dat[,nestVars[1]]))," out of ",length(unique(dat[,nestVars[1]]))," | ",
                                nestVars[2]," ",which(nv2 == unique(dat[,nestVars[2]]))," out of ",length(unique(dat[,nestVars[2]]))," | ",
                                nestVars[3]," ",which(nv3 == unique(dat[,nestVars[3]]))," out of ",length(unique(dat[,nestVars[3]]))))
@@ -860,6 +865,56 @@ getAbsTime <- function(dat, nestVars = "id",timeVar = "time",origin = Sys.time()
   return(dat)
 }
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param dat a data.frame object
+#' @param timeVar name of the column in the dat object indicating the time of observation in POSIX format.
+#' @param nestVars either a character object or a vector of character objects with the column names
+#' in the dat object, indicating the nesting of the data (e.g., participant ID). Up to three nesting layers can be defined. 
+#' @param verbose should processing information be printed during the functions run time. Default is FALSE.
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
+#' @export
+getRelStartTime <- function(dat, nestVars = "id",timeVar = "date",verbose = T, ...){
+  if(verbose) {
+    #cat("Getting absolute: \n")
+    pb <- txtProgressBar(min = 0, max = length(unique(dat[,nestVars[[1]]])), style = 3) 
+  }
+  ## for nestVar = 1 ###
+  if(length(nestVars) == 1){
+    for(nv1 in unique(dat[,nestVars[[1]]])){
+      #nv1 = 1
+      tmp <- dat[dat[,nestVars[1]] %in% nv1,]
+      startTime <- min(tmp[,timeVar])
+      dat[dat[,nestVars[1]] %in% nv1,"relTime"] <- tmp[,timeVar] - startTime
+
+      if(verbose) setTxtProgressBar(pb, which(nv1 == unique(dat[,nestVars[[1]]])))
+    }
+  }
+  
+  ### for nestVar = 2 ###
+  if(length(nestVars) == 2){
+    for(nv1 in unique(dat[,nestVars[[1]]])){
+      #nv1 = 1001
+      for(nv2 in unique(dat[dat[,nestVars[1]] %in% nv1,nestVars[2] ])){
+        tmp <- dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 ,]
+        startTime <- min(tmp[,timeVar])
+        dat[dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2 ,"relTime"] <- tmp[,timeVar] - startTime
+        
+        if(verbose) setTxtProgressBar(pb, which(nv1 == unique(dat[,nestVars[[1]]])))
+      }
+    }
+  }
+  
+  if(length(nestVars) > 2) stop("nestVars of lenght three or above not yet supported")
+  return(dat)
+}
+
 
 #' MAIN TITLE
 #' 
@@ -876,6 +931,7 @@ getAbsTime <- function(dat, nestVars = "id",timeVar = "time",origin = Sys.time()
 #' @examples 
 #'
 #' @export
+
 countEvents <- function(dat, timeVar, nestVars = NULL, window = 3600, window.label = NULL, verbose = T){
   #timeVar = "date"
   #window = 3600
@@ -895,9 +951,9 @@ countEvents <- function(dat, timeVar, nestVars = NULL, window = 3600, window.lab
   if(length(nestVars) == 1){
     for(nv1 in unique(dat[,nestVars[1]])){
       for(row in 1:nrow(dat)){
-        if(!(nv1 %in% dat[row,nestVars[1]])) next
+        if(!(dat[row,nestVars[1]] %in% nv1)) next
         if(is.na(dat[row,timeVar])) next
-        tmp <- dat[dat$date %in% (dat[row,timeVar]-1):(dat[row,timeVar]-window) & nv1 %in% dat[,nestVars[1]],]
+        tmp <- dat[dat$date %in% (dat[row,timeVar]-window):(dat[row,timeVar]-1) & dat[,nestVars[1]] %in% nv1,]
         dat[row,paste0("n_events_window",window.label)] <- nrow(tmp)
         if(verbose) cat(paste0("\r",row, " out of ", nrow(dat), "| ID ", nv1))
       }
@@ -910,15 +966,15 @@ countEvents <- function(dat, timeVar, nestVars = NULL, window = 3600, window.lab
         dat[dat[,nestVars[1]] %in% nv1,paste0("n_events_window",window.label,"_",nv2)] <- 0
         if(is.na(nv2)) next
         for(row in 1:nrow(dat)){
-          if(!(nv1 %in% dat[row,nestVars[1]])) next
-          if(!(nv2 %in% dat[row,nestVars[2]])) next
+          if(!(dat[row,nestVars[1]] %in% nv1)) next
+          if(!(dat[row,nestVars[2]] %in% nv2)) next
           if(is.na(dat[row,timeVar])) next
           
-          tmp <- dat[dat$date %in% (dat[row,timeVar]-1):(dat[row,timeVar]-window) & 
+          tmp <- dat[dat$date %in% (dat[row,timeVar]-window):(dat[row,timeVar]-1) & 
                        dat[,nestVars[1]] %in% nv1 & dat[,nestVars[2]] %in% nv2,]
           dat[row,paste0("n_events_window",window.label,"_",nv2)] <- nrow(tmp)
         }
-        if(verbose) cat(paste0("\n","| nv1:  ", nv1," out of ", lenght(unique(dat[,nestVars[1]])),
+        if(verbose) cat(paste0("\n","| nv1:  ", nv1," out of ", length(unique(dat[,nestVars[1]])),
                                "| nv2: ", nv2))
       }
     }
