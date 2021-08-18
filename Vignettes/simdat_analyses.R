@@ -3,6 +3,7 @@
 
 
 # load the dena package with the data
+rm(list = ls())
 library(dena)
 library(ggplot2)
 library(survival)

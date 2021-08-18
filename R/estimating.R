@@ -331,6 +331,7 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
     if(length(grep("frailty", iv)>0)) eMethod <- "coxph"
     
     for(category in cats){
+      if(length(grep("censored",category) > 0)) next
       # add category to left hand side of formula
       left.side <- paste0('Surv(',formula[[2]][[2]],',',
                           catVar, '== "',category,'") ~')
