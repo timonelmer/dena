@@ -120,7 +120,7 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   # verbose = T
   # print.survcheck = T
   # AloneLag = 1
-  # #dateVar <- "date"
+  # dateVar <- "date"
   # AloneLag = 1
   
   # disentangle formula
@@ -180,7 +180,7 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   head(dat[,c(nestVar,timeVar,catVar,"date")])
   if(verbose) cat("\n recalculating time differences and alter Lag" )
   dat[dat[,catVar] == "Alone",timeVar] <- AloneLag
-  dat <- lagVarsNested(dat, vars = c("date",catVar),diffvars = "date", nestVars = nestVar, verbose = F)
+  dat <- lagVarsNested(dat, vars = c("date",catVar),diffvars = "date", nestVars = nestVar, verbose = T)
   #head(dat[,c(nestVar,timeVar,catVar,"date")])
   #dat[,catVar] <- as.numeric(dat[,catVar])
   dat$start <- as.numeric((dat$date - dat$dateDiff1))
@@ -191,9 +191,11 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   dat$to <- factor(dat[,catVar],levels = 0:(length(cats)+1), labels = levels(cats.all))
   }else{
     cats.all <- c(cats,"Alone")
-    labels <- c(cats.all[censored],cats.all[-censored])
+    if(censored == "none") labels <- cats.all else{
+      labels <- c(cats.all[censored],cats.all[-censored])
+    }
     to <- factor(dat[,catVar],levels =  labels)
-    dat$to <- factor(as.numeric(dd)-1, levels = 0:(length(cats.all)-1), 
+    dat$to <- factor(as.numeric(to)-1, levels = 0:(length(cats.all)-1), 
                      labels = labels)
     
     # check
@@ -201,9 +203,13 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
     
     
     lvs <- 0:(length(cats.all)-1)
+    if(censored == "none") {
+      dat$from <- factor(as.numeric(dat[,paste0(catVar,"Lag1")])-1,
+                         levels = c(lvs) ,labels = labels)
+    }else{
     dat$from <- factor(as.numeric(dat[,paste0(catVar,"Lag1")])-1,
                        levels = c(lvs[censored],lvs[-censored]) ,labels = labels)
-   
+    }
     
     #check
     #data.frame(from, dat[,paste0(catVar,"Lag1")], as.numeric(from)-1, dat$from)
@@ -772,4 +778,5 @@ cmm.long <- function(formula, dat.l, eventVar = "event", datshape = "long",  dia
 # 4. use goldfish for the preprocessing, or develop my own
 # 5. the cox proportional hazard model is basically a mlogit model, that takes data like
 #dat # with dv = Surv(dat$time, dat$choice)
+
 
