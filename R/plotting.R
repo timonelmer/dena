@@ -103,7 +103,8 @@ plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, stars = F
     scale_color_manual("",values = RColorBrewer::brewer.pal(n = length(unique(fits$cat)), name = "Dark2")) +
     theme_minimal() +
     geom_hline(yintercept = 0, linetype = "dotted") +
-    theme(axis.text.x = element_text(angle = 90)) 
+    theme(axis.text.x = element_text(angle = 90))  +
+    guides(color = guide_legend(reverse = TRUE))
   plot(g)
 }
 
