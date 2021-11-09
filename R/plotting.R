@@ -121,6 +121,8 @@ plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, stars = F
 #' @export
 plot.denafit <- function(fit, type = "coef", ...){
   
+  if(attr(fit,"model") %in% c("cmm","multistate")) plot.cmm(fit[[1]],...)
+  if(attr(fit,"model") == "cmm" & type == "frailcor") frailcor(fit[[2]]) 
   if(attr(fit,"model") == "frailty") {
     if(type == "frailty"){
       temp.df <- data.frame(id = names(fit[[2]]$frail[[1]]), frailty = fit[[2]]$frail[[1]])
@@ -131,8 +133,6 @@ plot.denafit <- function(fit, type = "coef", ...){
       if(attr(fit,"eMethod") == "coxph") plot.coxph(fit[[2]],...)
     }
   }
-  if(attr(fit,"model") %in% c("cmm","multistate")) plot.cmm(fit[[1]],...)
-  if(attr(fit,"model") == "cmm" & type == "frailcor") frailcor(fit[[2]]) 
   
 }
 
