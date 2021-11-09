@@ -8,7 +8,9 @@
 usethis::use_package("ggplot2")
 usethis::use_package("survival")
 testing = F
-.onLoad <- function(...) packageStartupMessage(paste0("dena version ", Sys.Date()))
+
+date.of.compilatinon <- Sys.Date()
+.onLoad <- function(...) packageStartupMessage(paste0("dena version ", date.of.compilatinon))
 
 #####################################################
 ##### basic frailty model with one event type ######
@@ -236,6 +238,9 @@ multistate <- function(formula, dat, AloneLag = 1, dateVar = NULL, diagnostics =
   # estimation
   m1 <-coxph(new.formula , data =dat,
              id = id, istate = from,control = coxph.control(timefix = FALSE))
+  
+  #m1.coxme <- coxme(Surv(start, end, to == "family") ~ Covariate1 + Covariate3+ (1 | id), data = subset(dat, from =="Alone"))
+  
   tmp <- as.data.frame(summary(m1)$coefficients)
 
   for(i in 1:nrow(tmp)){
@@ -293,11 +298,21 @@ ggplot(tmp[!is.na(tmp$coef) & !(tmp$to %in% "Alone"),], aes(x = var, y = coef, s
 
 }
 
+
+## multistate with coxme
+#load("data/simdat2.RData") 
+# siome data transformation
+# simdat2 <- getAbsTime(simdat2)
+# simdat2$start <- simdat2$date
+# simdat2$end <- simdat2$start + 1
+# coxme(Surv(start,end, toState==to) ~ X + (1 | ID), data = subset(data, fromState==from))
+
+
+
 #' @export
-# TODO: formula format (1| ID)
-# TODO: long vs short data fromat argument
 # TODO: remove plot function
-cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
+cmm <- function(formula, dat, 
+                from = "Alone",diagnostics = F, plot = T, verbose = F, ...){
     
     require(survival)
 
@@ -314,8 +329,15 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
     timeVar <- dv[[2]]
     catVar <- as.character(dv[[3]])
     
+    
+    
     iv <- as.list(formula)[[3]]
+    # define estimation method
+    eMethod <- "coxme"
+    if(length(grep("frailty", iv)>0)) eMethod <- "coxph"
+    
     idVar <- as.list(iv[[3]])[[2]]
+    if(eMethod =="coxme") idVar <- idVar[[3]]
     ids <- unique(dat[,as.character(idVar)])
     cat(paste0(timeVar, " is timeVar | ",catVar, " is catVar | ", idVar, " is idVar"))
     
@@ -326,30 +348,26 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
                                                  collapse=", "), '\n')
     # some checks on the IV
     
-    # define estimation method
-    eMethod <- "NULL"
-    if(length(grep("frailty", iv)>0)) eMethod <- "coxph"
-    
     for(category in cats){
       if(length(grep("censored",category)) > 0) next
       # add category to left hand side of formula
       left.side <- paste0('Surv(',formula[[2]][[2]],',',
                           catVar, '== "',category,'") ~')
-      right.side <- gsub(","," ",toString(deparse(formula[[3]])))
+      if(eMethod == "coxph") right.side <- gsub(","," ",toString(deparse(formula[[3]])))
+      if(eMethod == "coxme") right.side <- paste0(deparse(formula[[3]][[2]])," + (1|",idVar,")")
       formula.cat <- as.formula(paste0(left.side,right.side))
       if(verbose) cat(paste0("estimating: ", deparse(formula.cat), "\n "))
       
       
       # estimate 
-      fit <- coxph(formula = formula.cat, data = dat)
-      #TODO: implement with coxme
-      #cat("\nTODO: implement with coxme and (1| ID)")
+      if(eMethod == "coxph") fit <- coxph(formula = formula.cat, data = dat)
+      if(eMethod == "coxme")fit <- coxme(formula = formula.cat, data = dat[,])
+      
+      
       require(survMisc)
       r2[nrow(r2)+1,"category"] <- category
-      r2[nrow(r2),2:4] <- sapply(rsq(fit), cbind)
-      colnames(r2) <- c("category", "cod (coefficient of determination)",
-                              "mer (explained randomness)",
-                              "mev (explained variance)")
+      r2[nrow(r2),2:3] <- c(MuMIn::r.squaredLR(fit),attr(MuMIn::r.squaredLR(fit),"adj.r.squared"))
+      colnames(r2) <- c("category", "r2", "adj.r2")
       # test for formula parsing with test data
      # all(coxph(Surv(timeDiff1, cat == "X") ~ a + frailty(ID), data = dat)$coefficients ==
      #    fit$coefficients)
@@ -357,16 +375,21 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
       
      # export
       attributes(fit)$cat <- category
+      attributes(fit)$from <- from
       fit.list[[length(fit.list)+1]] <- fit
       #View(getS3method("summary", "coxph"))
-      fits <- rbind(fits, data.frame(var = rownames(summary.coxphTE(fit)$coefficients),
+      if(eMethod == "coxph") fits <- rbind(fits, data.frame(var = rownames(summary.coxphTE(fit)$coefficients),
                                      cat = category, summary.coxphTE(fit)$coefficients))
+      
+      if(eMethod == "coxme") fits <- rbind(fits, data.frame(var = rownames(jstable:::coxmeTable(fit)),
+                                                            cat = category, from = from,  jstable:::coxmeTable(fit)))
       
       # get frailty terms
       tmp.frailty <- data.frame(ID = ids, 
-                                cat = category, frailty.cat = fit$frail)
+                                cat = category, frailty = fit$frail[[1]])
+      colnames(tmp.frailty)[1] <- as.character(idVar)
       tmp.frailty <- merge(tmp.frailty, 
-                           dat[dat[,catVar] %in% category,] %>% group_by_at(as.character(idVar)) %>% summarise(sum.cat = length(alter)))
+                           as.data.frame(dat[dat[,catVar] %in% category,] %>% group_by_at(as.character(idVar)) %>% summarise(sum.cat = length(catVar))))
       
       frailty <- rbind(frailty, tmp.frailty)
       
@@ -418,10 +441,17 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
     # }
     
     # add confidence intervals
+    if("beta" %in% colnames(fits)) colnames(fits)[which("beta" == colnames(fits))] <- "coef"
+    
+    if("se" %in% colnames(fits)){
+      fits$coef_UB <- fits$coef + 1.96*fits$se
+      fits$coef_LB <- fits$coef - 1.96*fits$se
+    }
     if("se2" %in% colnames(fits)){
     fits$coef_UB <- fits$coef + 1.96*fits$se2 
     fits$coef_LB <- fits$coef - 1.96*fits$se2
-    }else{
+    }
+    if("se.coef" %in% colnames(fits)){
       fits$coef_UB <- fits$coef + 1.96*fits$se.coef. 
       fits$coef_LB <- fits$coef - 1.96*fits$se.coef.
     }
@@ -442,8 +472,12 @@ cmm <- function(formula, dat, diagnostics = F, plot = T, verbose = F, ...){
 # test
 if(testing){
 load("data/simdat2.RData")  
-fit <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), dat = simdat2, 
+fit.coxph <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), dat = simdat2, 
                    catVar = "type", plot = F)
+fit.coxme <- cmm(formula = Surv(time, type) ~ Covariate2 + Covariate3 + (1  |id), dat = simdat2, 
+           catVar = "type", from = "Alone", plot = F)
+
+mstate <- multistate(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), simdat2, verbose = T)  
 
 summary(fit)
 plot(fit)  
