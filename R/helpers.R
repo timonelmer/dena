@@ -281,3 +281,6 @@ coxR2 <- function(fit){
                   exp(2 * fit$loglik[1]/fit$n))
   return(out)
 }
+
+
+

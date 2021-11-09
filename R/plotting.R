@@ -181,8 +181,9 @@ frailcor <- function(fits, datashape = "short"){
 #' @examples 
 #'
 #' @export
-survivalFunction <- function(dat, timeVar, eventVar, plotType = NULL, verbose = T){
+survivalFunction <- function(dat, timeVar, eventVar, plotType = "Survival", verbose = T){
   require(RColorBrewer)
+  require(ggplot2)
   #dat = dat.sim$data[dat.sim$data$X == c(1,0),]
   # timeVar = "y"
   # eventVar = "failed"
