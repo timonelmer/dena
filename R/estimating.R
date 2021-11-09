@@ -312,9 +312,11 @@ ggplot(tmp[!is.na(tmp$coef) & !(tmp$to %in% "Alone"),], aes(x = var, y = coef, s
 #' @export
 # TODO: remove plot function
 cmm <- function(formula, dat, 
-                from = "Alone",diagnostics = F, plot = T, verbose = F, ...){
+                from = NULL,diagnostics = F, plot = T, verbose = F, ...){
     
     require(survival)
+    require(coxme)
+    require(dplyr)
 
     verbose = T
     fits <- data.frame()
@@ -361,7 +363,7 @@ cmm <- function(formula, dat,
       
       # estimate 
       if(eMethod == "coxph") fit <- coxph(formula = formula.cat, data = dat)
-      if(eMethod == "coxme")fit <- coxme(formula = formula.cat, data = dat[,])
+      if(eMethod == "coxme")fit <- coxme(formula = formula.cat, data = dat)
       
       
       require(survMisc)
@@ -382,7 +384,7 @@ cmm <- function(formula, dat,
                                      cat = category, summary.coxphTE(fit)$coefficients))
       
       if(eMethod == "coxme") fits <- rbind(fits, data.frame(var = rownames(jstable:::coxmeTable(fit)),
-                                                            cat = category, from = from,  jstable:::coxmeTable(fit)))
+                                                            cat = category, from = ifelse(is.null(from),"NULL",from),  jstable:::coxmeTable(fit)))
       
       # get frailty terms
       tmp.frailty <- data.frame(ID = ids, 
@@ -475,7 +477,7 @@ load("data/simdat2.RData")
 fit.coxph <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), dat = simdat2, 
                    catVar = "type", plot = F)
 fit.coxme <- cmm(formula = Surv(time, type) ~ Covariate2 + Covariate3 + (1  |id), dat = simdat2, 
-           catVar = "type", from = "Alone", plot = F)
+           catVar = "type", from = NULL, plot = F)
 
 mstate <- multistate(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), simdat2, verbose = T)  
 
