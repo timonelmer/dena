@@ -363,7 +363,7 @@ cmm <- function(formula, dat,
       
       # estimate 
       if(eMethod == "coxph") fit <- coxph(formula = formula.cat, data = dat)
-      if(eMethod == "coxme")fit <- coxme(formula = formula.cat, data = dat)
+      if(eMethod == "coxme") fit <- coxme(formula = formula.cat, data = dat)
       
       
       require(survMisc)
