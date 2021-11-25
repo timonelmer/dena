@@ -355,8 +355,8 @@ cmm <- function(formula, dat,
       # add category to left hand side of formula
       left.side <- paste0('Surv(',formula[[2]][[2]],',',
                           catVar, '== "',category,'") ~')
-      if(eMethod == "coxph") right.side <- gsub(","," ",toString(deparse(formula[[3]])))
-      if(eMethod == "coxme") right.side <- paste0(deparse(formula[[3]][[2]])," + (1|",idVar,")")
+      if(eMethod == "coxph") right.side <- gsub(","," ",toString(paste0(deparse(formula[[3]]))))
+      if(eMethod == "coxme") right.side <- paste0(paste0(deparse(formula[[3]][[2]]), collapse = " ")," + (1|",idVar,")")
       formula.cat <- as.formula(paste0(left.side,right.side))
       if(verbose) cat(paste0("estimating: ", deparse(formula.cat), "\n "))
       
