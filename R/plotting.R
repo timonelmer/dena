@@ -45,30 +45,38 @@ plot.coxph <- function(fit, fontsize = 12){
 #' @examples 
 #'
 #' @export
-plot.coxme <- function(fit, fontsize = 12, labels = NULL, order = NULL, ...){
+plot.coxme <- function(fit, type = "est", fontsize = 12, labels = NULL, var.order = NULL, ...){
   require(ggplot2)
-  coef <- as.data.frame(coxmeTable(fit)[[3]])
   
-  coef$coef_UB <- coef$coef + 1.96*coef$`se(coef)`
-  coef$coef_LB <- coef$coef - 1.96*coef$`se(coef)`
-  if(!is.null(labels)) rownames(coef)<- labels 
-  if(is.null(order)) order <- 1:nrow(coef)
-  coef$name <- factor(rownames(coef), levels = rownames(coef)[order])
-  
-  
-  g <- ggplot(coef[!is.na(coef$coef),], aes(x = name, y = coef, color = coef>0)) +
-    geom_point() +
-    geom_errorbar(aes(ymin = coef_LB, ymax = coef_UB), width = 0.1) +
-    geom_hline(yintercept = 0, linetype ="dotted") +
-    theme_minimal() +
-    scale_color_manual(values = c("darkred","forestgreen")) +
-    theme(axis.text.y = element_text(size = fontsize, color = "black"),
-          axis.text.x= element_text(size = fontsize, color = "black"),
-          legend.position = "none") +
-    ylab("Coefficient") +
-    xlab("") +
-    coord_flip()
-  plot(g)
+  if(type == "est"){
+    coef <- as.data.frame(coxmeTable(fit)[[3]])
+    
+    coef$coef_UB <- coef$coef + 1.96*coef$`se(coef)`
+    coef$coef_LB <- coef$coef - 1.96*coef$`se(coef)`
+    if(!is.null(labels)) rownames(coef)<- labels 
+    if(is.null(var.order)) var.order <- 1:nrow(coef)
+    coef$name <- factor(rownames(coef), levels = rownames(coef)[var.order])
+    
+    
+    g <- ggplot(coef[!is.na(coef$coef),], aes(x = name, y = coef, color = coef>0)) +
+      geom_point() +
+      geom_errorbar(aes(ymin = coef_LB, ymax = coef_UB), width = 0.1) +
+      geom_hline(yintercept = 0, linetype ="dotted") +
+      theme_minimal() +
+      scale_color_manual(values = c("darkred","forestgreen")) +
+      theme(axis.text.y = element_text(size = fontsize, color = "black"),
+            axis.text.x= element_text(size = fontsize, color = "black"),
+            legend.position = "none") +
+      ylab("Coefficient") +
+      xlab("") +
+      coord_flip()
+    plot(g)
+  }
+  if(type == "frailty"){
+    temp.df <- data.frame(id = names(fit$frail$id), frailty = fit$frail$id)
+    
+    plot(ggplot(temp.df, aes(x = frailty))+geom_histogram(bins = 10)+theme_minimal())
+  }
 }
 
 #' MAIN TITLE
@@ -82,30 +90,35 @@ plot.coxme <- function(fit, fontsize = 12, labels = NULL, order = NULL, ...){
 #' @examples 
 #'
 #' @export
-plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, stars = F, ...){
+plot.cmm <- function(fits, type = "est", fontsize = 12, order = NULL, labels = NULL, stars = F, ...){
   require(ggplot2)
   
-  if(!is.null(labels)) fits$var <- labels 
-  if(is.null(order)) order <- 1:length(unique(fits$var))
-  fits$var <- factor(fits$var, levels = fits$var[1:length(unique(fits$var))][order])
-  if(!stars) fits$sig <- NA 
-  
-  g <- ggplot(fits[!is.na(fits$coef),], aes(x = var, y = coef, color = cat)) +
-    geom_point(position = position_dodge(width=0.5)) +
-    geom_errorbar(aes(ymin = coef_LB, ymax = coef_UB),
-                  width = 0.2,
-                  position=position_dodge(width=0.5)) +
-    coord_flip() +
-    ylab("Coefficient") +
-    xlab("") +
-    geom_text(aes(x = var, y = coef, color = factor(cat), label = sig),
-              position = position_dodge(width=0.5)) +
-    scale_color_manual("",values = RColorBrewer::brewer.pal(n = length(unique(fits$cat)), name = "Dark2")) +
-    theme_minimal() +
-    geom_hline(yintercept = 0, linetype = "dotted") +
-    theme(axis.text.x = element_text(angle = 90))  +
-    guides(color = guide_legend(reverse = TRUE))
-  plot(g)
+  if(type == "est"){
+    if(!is.null(labels)) fits$var <- labels 
+    if(is.null(order)) order <- 1:length(unique(fits$var))
+    fits$var <- factor(fits$var, levels = fits$var[1:length(unique(fits$var))][order])
+    if(!stars) fits$sig <- NA 
+    
+    g <- ggplot(fits[!is.na(fits$coef),], aes(x = var, y = coef, color = cat)) +
+      geom_point(position = position_dodge(width=0.5)) +
+      geom_errorbar(aes(ymin = coef_LB, ymax = coef_UB),
+                    width = 0.2,
+                    position=position_dodge(width=0.5)) +
+      coord_flip() +
+      ylab("Coefficient") +
+      xlab("") +
+      geom_text(aes(x = var, y = coef, color = factor(cat), label = sig),
+                position = position_dodge(width=0.5)) +
+      scale_color_manual("",values = RColorBrewer::brewer.pal(n = length(unique(fits$cat)), name = "Dark2")) +
+      theme_minimal() +
+      geom_hline(yintercept = 0, linetype = "dotted") +
+      theme(axis.text.x = element_text(angle = 90))  +
+      guides(color = guide_legend(reverse = TRUE))
+    plot(g)
+  }
+  if(type == "frailty"){
+    
+  }
 }
 
 #' MAIN TITLE
@@ -121,18 +134,19 @@ plot.cmm <- function(fits, fontsize = 12, order = NULL, labels = NULL, stars = F
 #' @export
 plot.denafit <- function(fit, type = "coef", ...){
   
+  if(attributes(fit)$class == "coxme"){ # all coxme plotting things
+    if(type == "frailty"){
+        temp.df <- data.frame(id = names(fit$frail$id), frailty = fit$frail$id)
+        
+        plot(ggplot(temp.df, aes(x = frailty))+geom_histogram(bins = 10)+theme_minimal())
+      }else{
+        plot.coxme(fit[[2]],...)
+        #if(attributes(fit,"class") == "coxme") plot.coxph(fit[[2]],...)
+      }
+  }
   if(attr(fit,"model") %in% c("cmm","multistate")) plot.cmm(fit[[1]],...)
   if(attr(fit,"model") == "cmm" & type == "frailcor") frailcor(fit[[2]]) 
-  if(attr(fit,"model") == "frailty") {
-    if(type == "frailty"){
-      temp.df <- data.frame(id = names(fit[[2]]$frail[[1]]), frailty = fit[[2]]$frail[[1]])
-      
-      plot(ggplot(temp.df, aes(x = frailty))+geom_histogram(bins = 10)+theme_minimal())
-    }else{
-      if(attr(fit,"eMethod") == "coxme") plot.coxme(fit[[2]],...)
-      if(attr(fit,"eMethod") == "coxph") plot.coxph(fit[[2]],...)
-    }
-  }
+  
   
 }
 
