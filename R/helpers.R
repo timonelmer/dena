@@ -277,9 +277,9 @@ corstarsl <- function(x, bonferroni = F, which.spearman = NULL){
 #' @export
 coxR2 <- function(fit){
   logtest <- -2 * (fit$loglik[1] - fit$loglik[2])
-  out <- c(rsq = 1 - exp(-logtest/fit$n), maxrsq = 1 - 
-                  exp(2 * fit$loglik[1]/fit$n))
-  return(out)
+  out <- c(rsq = 1 - exp(-logtest/fit$n[1]), maxrsq = 1 - 
+                  exp(2 * fit$loglik[1]/fit$n[1]))
+  return(out[1])
 }
 
 
