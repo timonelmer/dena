@@ -312,17 +312,19 @@ ggplot(tmp[!is.na(tmp$coef) & !(tmp$to %in% "Alone"),], aes(x = var, y = coef, s
 #' @export
 # TODO: remove plot function
 cmm <- function(formula, dat, 
-                from = NULL,diagnostics = F, plot = T, verbose = F, ...){
+                from = NULL,diagnostics = F, plot = F, verbose = F, ...){
     
     require(survival)
     require(coxme)
     require(dplyr)
+    require(MuMIn)
 
     verbose = T
     fits <- data.frame()
     frailty <- data.frame()
     r2 <- data.frame()
     fit.list <- list()
+    from = NULL
     
     # formula needs to be in the format
     # formula = Surv(timeDiff1, cat) ~ a + frailty(ID)
