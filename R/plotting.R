@@ -195,7 +195,7 @@ frailcor <- function(fits, datashape = "short"){
 #' @examples 
 #'
 #' @export
-survivalFunction <- function(dat, timeVar, eventVar, plotType = "Survival", verbose = T){
+survivalFunction <- function(dat, timeVar, eventVar, plotType = "Survival", returnDF = F, verbose = F){
   require(RColorBrewer)
   require(ggplot2)
   #dat = dat.sim$data[dat.sim$data$X == c(1,0),]
@@ -249,7 +249,7 @@ survivalFunction <- function(dat, timeVar, eventVar, plotType = "Survival", verb
       ggplot2::xlab("Time passed since last event (T)")  #+ geom_smooth()
     plot(g.s)}
   }
-  return(meta)
+  if(returnDF) return(meta)
 }
 
 # test

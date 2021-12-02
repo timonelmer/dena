@@ -359,7 +359,7 @@ cmm <- function(formula, dat,
                           catVar, '== "',category,'") ~')
       if(eMethod == "coxph") right.side <- gsub(","," ",toString(paste0(deparse(formula[[3]]))))
       if(eMethod == "coxme") right.side <- paste0(paste0(deparse(formula[[3]][[2]]), collapse = " ")," + (1|",idVar,")")
-      formula.cat <- as.formula(paste0(left.side,right.side))
+      formula.cat <- as.formula(paste0(left.side," ", right.side))
       if(verbose) cat(paste0("estimating: ", deparse(formula.cat), "\n "))
       
       
