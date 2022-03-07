@@ -39,7 +39,7 @@ library(dena)
 data(simdat) # the  Rcode to simulate this dataset can be found at the bottom of this script
 survivalFunction(dat = simdat,timeVar =  "time", eventVar = "event", returnDF = F, verbose = F)
 
-
+survivalFunction(dat = simdat,timeVar =  "time", eventVar = "event", returnDF = F, verbose = F, plotType = "Nelson-Aalen")
 ```
 
 ## Cox Proportional Hazard Model 
@@ -114,11 +114,34 @@ tmp
 
 ## Multistate model 
 
+Now, let us take the type of interaction into account. The following histogram shows the waiting times per interaction type:
+
+```{r}
+ggplot(simdat2, aes(x = time, fill = type), alpha = 0.2) + geom_histogram(position = "identity", alpha = 0.7)
+```
+
 with the cmm function we can estimate a multistate model with one starting state and multiple target states (variable type): 
 
 ```{r, eval = F}
 
 m.cmm <- dena::cmm(Surv(time, type) ~ Covariate2 + Covariate3 + (1|id), dat = simdat2)
+
+m.coxph2 <- coxph(Surv(time, event) ~ Covariate2 + Covariate3, simdat2) # without frailty
+
+simdat2[nrow(simdat2)+1,] <- simdat2[nrow(simdat2),]
+simdat2[nrow(simdat2),"type"] <- "(censored)"
+simdat2[nrow(simdat2),"event"] <- 0
+simdat2$type <- factor(simdat2$type, levels =c("(censored)","family","friend","partner"))
+
+m.survfit <- survfit(Surv(time, as.factor(type)) ~ I(Covariate3<median(Covariate3)), simdat2)
+m.survfit$transitions
+
+m.survfit # order of plotting
+plot(m.survfit, col = c(1,1,2,2,3,3)+1, lty = c(1,2,1,2,1,2),
+     xlab ="Minutes since last interaction", ylab = "Probability in state"
+     ) # also see p.7 https://cran.r-project.org/web/packages/survival/vignettes/compete.pdf
+legend(0, .6, c("> Cov3 median","< Cov3 median","family","friend","partner"),
+ col = c(1,1,2,3,4), lty = c(1,2,1,1,1), lwd=1, bty='n')
 
 ```
 
@@ -129,9 +152,20 @@ m.cmm[[1]] # summary of the estimates
 
 we can also visualize the fixed effects coefficients
 
-```{r, eval = T}
+```{r, eval = T,  fig.width= 6, fig.height= 5}
 plot.cmm(m.cmm[[1]])
 ```
+
+we see that Covariate3 is highly associated with sooner interactions with partners. From the following plot, that  we also see descriptively that for interactions with partners Covariate3 is highly correlated with the waiting time.
+
+```{r}
+
+# ggplot(simdat2, aes(x = Covariate3, fill = type), alpha = 0.2) + geom_histogram(position = "identity", alpha = 0.7)
+
+psych::pairs.panels(simdat2[simdat2$type %in% "partner",c("time","Covariate3")])
+
+```
+
 
 other details of the results can be accessed too
 
@@ -165,6 +199,7 @@ simdat$event <- simdat$event*1
 head(simdat)
 #save(simdat, file = "data/simdat.RData")
 ```
+
 # Simulation of the simdata2 dataset 
 ```{r, }
 set.seed(133)
