@@ -16,8 +16,19 @@ rm(list = ls()) #clear the environment
 # `%!in%` <- Negate(`%in%`)
 # dat <- dat[which(1:nrow(dat) %!in% grep("NA",rownames(dat))),]
 # save(dat,raw.dat, file = "public_datset.RData")
-load("public_dataset.RData")
-#
+data("DartmouthStudentLife")
+# the data is from 
+# Wang, R., Chen, F., Chen, Z., Li, T., Harari, G., Tignor, S., Zhou, X., 
+#   Ben-Zeev, D., & Campbell, A. T. (2014). 
+#   Studentlife: Assessing mental health, academic performance and behavioral
+#   trends of college students using smartphones. UbiComp 2014 - 
+#   Proceedings of the 2014 ACM International Joint Conference on
+#   Pervasive and Ubiquitous Computing, 3–14. https://doi.org/10.1145/2632048.2632054
+# 
+# #
+head(dat)
+
+## some descriptives ##
 
 # number of interactions per participant and day
 tmp <- dat %>% group_by(uid,state) %>% summarise(sum = length(uid))
@@ -37,12 +48,12 @@ sd(dat[dat$state == "alone", "duration.state"], na.rm = T)
 
 
 # time of the day plot
-ggplot(dat, aes(x=as.POSIXct(format(as.POSIXct(dat$start), "%H:%M:%S"),format="%H:%M"))) + 
+ggplot(dat, aes(x=as.POSIXct(format(as.POSIXct(start), "%H:%M:%S"),format="%H:%M"))) + 
   geom_histogram( fill="lightblue", binwidth = 15*60,  # 15 min *60 sec/min
                   color="grey50")
 
 
-##### RQ1: Multistate Models ####
+##### RQ1 Multistate Models ####
 
 
 ### checks for multistate model
@@ -52,11 +63,6 @@ checks <- !(1:nrow(dat) %in% check$overlap$row) & !(1:nrow(dat) %in% check$gap$r
 
 # multistate method from the survival package (package manual, Therneau, 2020, p 61)
 m1 <-coxph(Surv(start.time, end.time, to) ~ 
-             #loneliness.pre +
-             loneliness.collective.pre + 
-             loneliness.intimate.pre +
-             loneliness.relational.pre+ 
-             #I(duration_mean_windowAll/60) + 
              I(duration_mean_window7200/60) +
              weekend+
              morning + afternoon + evening +

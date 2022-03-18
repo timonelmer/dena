@@ -7,6 +7,7 @@ rm(list = ls())
 library(dena)
 library(ggplot2)
 library(survival)
+library(coxme)
 data(simdat) # the  Rcode to simulate this dataset can be found at the bottom
 # of this script
 
@@ -14,11 +15,14 @@ data(simdat) # the  Rcode to simulate this dataset can be found at the bottom
 
 ### survival Function (with plot) ##
 survivalFunction(dat = simdat,timeVar =  "time", eventVar = "event")
+survivalFunction(dat = simdat,timeVar =  "time", eventVar = "event", returnDF = F, verbose = F, plotType = "Nelson-Aalen")
 
 
 #### Cox Proportional Hazard Model #####
 ## fit a coxph model ##
 fit <-coxph(formula = Surv(time, event) ~ X, data = simdat)
+
+plot(survfit(Surv(time, event) ~ X, simdat), fun = "cumhaz")
 summary(fit)
 coxR2(fit) # computes the pseudo r-squared (based on the cox-snell method)
 
@@ -56,6 +60,33 @@ m.coxph <- coxph(Surv(time, event) ~ Covariate1 + Covariate2 + frailty(id), simd
 
 # with coxme
 m.coxme <- coxme::coxme(Surv(time, event) ~ Covariate1 + Covariate2 + (1 | id), simdat2)
+plot(survfit(Surv(time, event) ~ Covariate1 + Covariate2 , data = simdat2), fun = "cumhaz")
+
+fit <- 
+  cmprsk::cuminc(
+    ftime = simdat2$time, 
+    fstatus = simdat2$type, 
+    group = simdat2$id,
+    cencode = 2
+  )
+
+ggcompetingrisks(
+  fit = fit, 
+  multiple_panels = FALSE,
+  ylim = c(0, 1)
+)
+
+# survivalFunctionMultiple <- function(dat, timeVar =  "time",  eventVar = "event", idVar = "id", toVar = "type"){
+#   for(id in unique(dat[,idVar])){
+#     for(to in unique(dat[,toVar])){
+#       tmp <- dat[dat[,idVar] %in% id & dat[,toVar] %in% to,]
+#       survivalFunction(dat = tmp,timeVar =  "time",  eventVar = "event", returnDF = T)
+#     }
+#     
+#   }
+# }
+# survivalFunctionMultiple(simdat2)
+
 
 # with the frailtyEM
 m.frailtyEM <- frailtyEM::emfrail(Surv(time, event) ~ Covariate1 + Covariate2 + cluster(id), simdat2)
