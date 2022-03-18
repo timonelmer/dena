@@ -319,12 +319,14 @@ cmm <- function(formula, dat,
     require(dplyr)
     require(MuMIn)
 
-    verbose = T
+    # verbose = T
+    # plot = T
+    # from = NULL
+    # 
     fits <- data.frame()
     frailty <- data.frame()
     r2 <- data.frame()
     fit.list <- list()
-    from = NULL
     
     # formula needs to be in the format
     # formula = Surv(timeDiff1, cat) ~ a + frailty(ID)
@@ -370,8 +372,9 @@ cmm <- function(formula, dat,
       
       require(survMisc)
       r2[nrow(r2)+1,"category"] <- category
-      r2[nrow(r2),2:3] <- c(MuMIn::r.squaredLR(fit),attr(MuMIn::r.squaredLR(fit),"adj.r.squared"))
-      colnames(r2) <- c("category", "r2", "adj.r2")
+      #r2[nrow(r2),2:3] <- c(MuMIn::r.squaredLR(fit),attr(MuMIn::r.squaredLR(fit),"adj.r.squared"))
+      #colnames(r2) <- c("category", "r2", "adj.r2")
+      
       # test for formula parsing with test data
      # all(coxph(Surv(timeDiff1, cat == "X") ~ a + frailty(ID), data = dat)$coefficients ==
      #    fit$coefficients)
@@ -399,50 +402,6 @@ cmm <- function(formula, dat,
       
     }
     
-    
-    # old way of estimating in the long format
-    # for(cat in unique(dat[,catVar])){ # this is how competing risks is tough in the mstate vignette (Putter, 2019)
-    #   if(is.na(cat)) next
-    #   if(verbose) cat(paste0("\r Estimating cmm for category: ",cat,"\n"))
-    #   # estimate
-    #   if(datshape == "long"){
-    #     # check if it is a frailty model from survival package, otherwise use coxme
-    #     if(length(grep("frailty",sapply(formula[[3]], unlist))) > 0){
-    #       f1 <- survival::coxph(formula, data = dat[dat[,catVar] == cat,])
-    #       tmp <- as.data.frame(summary(f1)$coefficients)
-    #     }else{
-    #       f1 <- coxme::coxme(formula, data = dat[dat[,catVar] == cat,])
-    #       tmp <- as.data.frame(coxmeTable(f1)[[3]])
-    #     }
-    #   }if(datshape == "short"){
-    #     
-    #   }
-    #   #print(summary(f1))
-    #   
-    #   # check diagnostics
-    #   if(diagnostics){
-    #     # proportional hazards assumption
-    #     ggcoxzph(cox.zph(f1)) # if  p < 0.05, violation of proportional hazards assumption
-    #     # also see: https://stats.stackexchange.com/questions/422539/schoenfeld-test-cox-zph-shows-no-covariate-violates-ph-assumption-but-global-t
-    #     
-    #     # outliers
-    #     ggcoxdiagnostics(f1, type = "dfbeta", linear.predictions = FALSE, ggtheme = theme_bw())
-    #     ggcoxdiagnostics(f1, type = "deviance", linear.predictions = FALSE, ggtheme = theme_bw())
-    #     
-    #     # linearty assumption
-    #     ggcoxfunctional(f1) #should be on a straight line
-    #     
-    #     # frailty distribution
-    #     hist(f1$frail)
-    #   }
-    #   
-    #   # export
-    #   fit.list[[length(fit.list)+1]] <- list(cat,f1)
-    #   
-    #   tmp$cat <- cat
-    #   tmp$var <- rownames(tmp)
-    #   fits <- rbind(fits, tmp)
-    # }
     
     # add confidence intervals
     if("beta" %in% colnames(fits)) colnames(fits)[which("beta" == colnames(fits))] <- "coef"
@@ -479,7 +438,7 @@ load("data/simdat2.RData")
 fit.coxph <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), dat = simdat2, 
                    catVar = "type", plot = F)
 fit.coxme <- cmm(formula = Surv(time, type) ~ Covariate2 + Covariate3 + (1  |id), dat = simdat2, 
-           catVar = "type", from = NULL, plot = F)
+           catVar = "type", from = NULL, plot = T, verbose = T)
 
 mstate <- multistate(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), simdat2, verbose = T)  
 
@@ -503,6 +462,8 @@ data <- lagVarsNested(data, vars = c("a","time"), nestVars = "ID", lags = 1,
 data$timeDiff1 <- round(data$timeDiff1)
 m <- cmm(Surv(timeDiff1,cat) ~ a + frailty(ID),
     dat = data, plot = T)
+m <- cmm(Surv(timeDiff1,cat) ~ a + (1 | ID),
+         dat = data, plot = T)
 m
 
 ## test if competing rates from Putter et al., 2007 (Tutuorial paper, p. 2404) is identical to my method
