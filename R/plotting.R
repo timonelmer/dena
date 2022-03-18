@@ -231,14 +231,14 @@ survivalFunction <- function(dat, timeVar, eventVar, plotType = "Survival", retu
     if(plotType == "Kaplan-Meier") {g.km <- ggplot2::ggplot(meta[!is.na(meta$surv.prob),], ggplot2::aes(x = t, y = kaplan.meier.e)) + ggplot2::geom_point() + ggplot2::theme_minimal()  +
       ggplot2::geom_line() + ggplot2::ylab("Kaplan-Meier estimate") +
       geom_line() +
-      ggplot2::xlab("Time passed since last event")  #+ geom_smooth()
+      ggplot2::xlab("Time passed since last event (T)")  #+ geom_smooth()
     plot(g.km)}
     
     #nelson.aalen estimation
     if(plotType == "Nelson-Aalen") {g.na <- ggplot2::ggplot(meta[!is.na(meta$surv.prob),], ggplot2::aes(x = t, y = nelson.aalen.e)) + ggplot2::geom_point() + ggplot2::theme_minimal()  +
-      ggplot2::ylab("Nelson-Aalen estimate") +
+      ggplot2::ylab("Cumulative hazard rate \n (Nelson-Aalen estimate)") +
       geom_line() +
-      ggplot2::xlab("Time passed since last event")  #+ geom_smooth()
+      ggplot2::xlab("Time passed since last event (T)")  #+ geom_smooth()
     plot(g.na)}
     
     # surv.plot
