@@ -8,7 +8,7 @@
 <!-- badges: end -->
 
 # dena
-`dena` is R package that aids in preprocessing, modeling, and visualization of categorical timeseries data and egocentric social network dynamics.
+`dena` is an R package that aids in preprocessing, modeling, and visualization of categorical timeseries data and egocentric social network dynamics.
 
 ## Installation
 
@@ -22,6 +22,8 @@ devtools::install_github("timonelmer/dena")
 
 
 #### Use
+
+
 
 ```r
 library(dena)
