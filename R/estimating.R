@@ -309,8 +309,17 @@ ggplot(tmp[!is.na(tmp$coef) & !(tmp$to %in% "Alone"),], aes(x = var, y = coef, s
 
 
 
+#' MAIN TITLE
+#' 
+#' initial description
+#'
+#' @param 
+#' 
+#' @return 
+#' 
+#' @examples 
+#'
 #' @export
-# TODO: remove plot function
 cmm <- function(formula, dat, 
                 from = NULL,diagnostics = F, plot = F, verbose = F, ...){
     
@@ -345,7 +354,7 @@ cmm <- function(formula, dat,
     idVar <- as.list(iv[[3]])[[2]]
     if(eMethod =="coxme") idVar <- idVar[[3]]
     ids <- unique(dat[,as.character(idVar)])
-    cat(paste0(timeVar, " is timeVar | ",catVar, " is catVar | ", idVar, " is idVar"))
+    if(verbose) cat(paste0(timeVar, " is timeVar | ",catVar, " is catVar | ", idVar, " is idVar"))
     
     if(!(class(dat[,catVar]) %in% "factor")) dat[,catVar] <- factor(dat[,catVar])
     cats <- levels(dat[,catVar])

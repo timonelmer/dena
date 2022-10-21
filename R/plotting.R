@@ -156,30 +156,47 @@ plot.denafit <- function(fit, type = "coef", ...){
 #' initial description
 #'
 #' @param datashape 
-#' 
+#' @param fits a data frame with the first column indicating the ID variable, and a colname with label "frailty".
 #' @return 
 #' 
 #' @examples 
 #'
 #' @export
 frailcor <- function(fits, datashape = "short"){
-  if(datashape == "long"){
-    frails <- data.frame(ID = NA)
-    for(i in 1:length(fits)){
-      tmp <- as.data.frame(fits[[i]][[1]]$frail$ID)
-      tmp$ID <- rownames(tmp)
-      colnames(tmp)[1] <- attr(fits[[i]][[1]],"cat")
-      frails <- merge(frails, tmp, by = "ID", all = T)
+  if(!is.list(fits)){ # for a single data frame
+    if(!data.frame(fits)) stop("fits object needs to be either list or data.frame")
+    
+    if(datashape == "long"){
+      psych::pairs.panels(fits, hist.col = "gray")
     }
-    #car::spm(frails[,-1])
-    GGally::ggpairs(as.data.frame(frails[,-1])) + jtools::theme_apa()
-    #if(!return.plot) return(frails)
-  }else{
-    frails <- sapply(fits, function(x) x$frail)
-    colnames(frails) <- sapply(fits, function(x) attr(x, "cat"))
-    #psych::pairs.panels(frails)
-    GGally::ggpairs(as.data.frame(frails)) + jtools::theme_apa()
-    #if(!return.plot) return(frails)
+    if(datashape == "short"){
+      require(tidyr)
+      tmp <- fits %>%
+        pivot_wider(names_from = cat, values_from = frailty)
+      
+      psych::pairs.panels(as.data.frame(tmp[,-c(1:2)]), hist.col = "gray")
+    }
+    
+  }else{ # for lists
+  
+    if(datashape == "long"){
+      frails <- data.frame(ID = NA)
+      for(i in 1:length(fits)){
+        tmp <- as.data.frame(fits[[i]][[1]]$frail[,1])
+        tmp$ID <- rownames(tmp)
+        colnames(tmp)[1] <- attr(fits[[i]][[1]],"cat")
+        frails <- merge(frails, tmp, by = "ID", all = T)
+      }
+      #car::spm(frails[,-1])
+      GGally::ggpairs(as.data.frame(frails[,-1])) + jtools::theme_apa()
+      #if(!return.plot) return(frails)
+    }else{
+      frails <- sapply(fits, function(x) x$frail)
+      colnames(frails) <- sapply(fits, function(x) attr(x, "cat"))
+      #psych::pairs.panels(frails)
+      GGally::ggpairs(as.data.frame(frails)) + jtools::theme_apa()
+      #if(!return.plot) return(frails)
+    }
   }
 }
 
@@ -346,8 +363,8 @@ getTransitionMatrix <- function(dat, catVar, type = "sum", categories = NULL){
   
   #mat <- as.matrix(table(tmp))
   tmp.sum <- as.matrix(table(tmp))
-    for(i in categories){
-      for(j in categories){
+    for(i in 1:length(categories)){
+      for(j in 1:length(categories)){
         mat[i,j] <- tmp.sum[i,j]
       }
     }
@@ -381,7 +398,7 @@ if(testing){
 #' @examples 
 #'
 #' @export
-plotTransitionNetwork <- function(dat, catVar, type = "sum", categories = NULL, returnMat = T, title = NULL){
+plotTransitionNetwork <- function(dat, catVar, type = "sum", categories = NULL, returnMat = T, title = NULL, label.size = 8){
   require(ggraph)
   mat <- getTransitionMatrix(dat = dat, catVar = catVar, type = type, categories = categories)
   
@@ -396,13 +413,13 @@ plotTransitionNetwork <- function(dat, catVar, type = "sum", categories = NULL, 
                   end_cap = circle(3, 'mm')) + 
     scale_edge_width(range = c(1, 10)) + # control size of edge width
     geom_node_point(size = 5, color = "gray20") +
-    geom_node_text(aes(label = name), fontface = "bold",  repel = TRUE) +
+    geom_node_text(aes(label = name), fontface = "bold", size = label.size, nudge_y = -0.12, repel = TRUE) +
     ggtitle(title)+
     theme_void() +
     theme(legend.position = 'none')
 }
 if(testing){
-  load("../../Doktorat/Datasets/iSAHIB/iSAHIB_2021-03-16.RData")
+  load("../../Datasets/iSAHIB/iSAHIB_2021-05-27.RData")
   
   plotTransitionNetwork(dat = int[int$ID == 1001,], title = "ID = 1001", catVar = "alter")
   plotTransitionNetwork(dat = int[int$ID == 1001,], title = "ID = 1001", type ="rowProb",catVar = "alter")
