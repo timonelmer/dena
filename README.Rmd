@@ -23,10 +23,24 @@ knitr::opts_chunk$set(
 <!-- [![Codecov test coverage](https://codecov.io/gh/timonelmer/dena/branch/master/graph/badge.svg)](https://codecov.io/gh/timonelmer/dena?branch=master) -->
 <!-- badges: end -->
 
-`dena` is an R package that aids in preprocessing, modeling, and visualization of categorical timeseries data and egocentric social network dynamics.
+`dena` is an R package that aids in preprocessing, modeling, and visualization of categorical time-to-event data and egocentric social network dynamics. This readme file will show you 
+
+1. how to install and load the `dena` package
+2. examples of how `dena`can be used for preprocessing nested time-to-event data
+3. how to use `dena`'s wrapper functions to estimate competing multistate models
+4. examples of how `dena`can be used to visualize data and model results, for example: 
 
 
-## Installation
+```{r, message = FALSE, out.width="50%", echo = F, warning = F}
+
+library(dena)
+data(simdat2)
+fit <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + (1 | id), dat = simdat2, verbose = F)
+plot.cmm(fit[[1]])
+
+```
+
+## 1. Installation
 
 You can install the development version of dena from [GitHub](https://github.com/) with:
 
@@ -35,27 +49,99 @@ You can install the development version of dena from [GitHub](https://github.com
 devtools::install_github("timonelmer/dena")
 ```
 
-## Example
+`dena` can be loaded with the following function
 
-This is a basic example which shows you how to solve a common problem:
-
-```{r example}
+```{r message=FALSE}
 library(dena)
-## basic example code
+
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+## 2. Preprocessing functions
 
-```{r cars}
-summary(cars)
+When analyzing (categorical) time-to-event data of multiple participants, we enounter often data of the following format:
+
+```{r}
+data(simdat2) # loading the example dataset
+
+head(simdat2[,c(1,2,3,7,5)])
+
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this. You could also use GitHub Actions to re-render `README.Rmd` every time you push. An example workflow can be found here: <https://github.com/r-lib/actions/tree/v1/examples>.
+with the `meanCenteringNested` function, we can mean center variables up to three nesting layers (e.g., within participants, within burst, within week). 
 
-You can also embed plots, for example:
+```{r}
+simdat2 <- meanCenteringNested(dat = simdat2, 
+                               vars = c("Covariate1","Covariate2"), 
+                               nestVars = "id", 
+                               verbose = F) 
 
-```{r pressure, echo = FALSE}
-plot(pressure)
+head(simdat2[,c("id","Covariate1","Covariate1_id_MeanC","Covariate1_id_Mean")])
+
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+or we can lag variables:
+
+```{r}
+simdat2 <- lagVarsNested(dat = simdat2, 
+                         lags = 1,
+                         vars = c("Covariate1","Covariate2"), 
+                         nestVars = "id", 
+                         verbose = F) 
+
+head(simdat2[,c("id","Covariate1","Covariate1Lag1")])
+
+```
+
+## 3. Estimation functions
+
+The `cmm` function, for example, is a wrapper function for fitting multiple `coxme` functions with multiple categorical target states (a so-called *competing risk model*)
+
+```{r message=FALSE}
+
+fit <- cmm(formula = Surv(time, type) ~ Covariate2 + Covariate3 + (1  |id), dat = simdat2, 
+           catVar = "type", from = NULL, verbose = F)
+
+fit[[1]] # summary of fixed effects estimates
+```
+
+
+
+## 4. Visualization functions
+
+### 4.1 Describing the data visually
+
+```{r message=FALSE, out.width="50%"}
+data(simdat)
+survivalFunction(simdat, "time")
+
+```
+
+Visualizing the transitions between (interaction) states
+
+```{r message=FALSE, warning = FALSE, out.width="50%"}
+
+plotTransitionNetwork(dat = simdat2, title = "ID = all", type ="sum",catVar = "type")
+
+
+```
+
+
+### 4.2 Visualizing model results
+
+
+Visualizing `coxme` and `coxph` model estimates:
+
+```{r message=FALSE, out.width="50%"}
+model1 <- coxme(Surv(time, event) ~ Covariate1 + Covariate2 + (1 | id), dat = simdat2)
+plot.coxme(model1)
+
+```
+
+Visualizing multistate model results: 
+
+```{r, out.width="50%"}
+fit <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + (1 | id), dat = simdat2)
+plot.cmm(fit[[1]])
+
+```
+
