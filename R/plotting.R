@@ -134,7 +134,7 @@ plot.cmm <- function(fits, type = "est", fontsize = 12, order = NULL, labels = N
 #' @export
 plot.denafit <- function(fit, type = "coef", ...){
   
-  if(attributes(fit)$class == "coxme"){ # all coxme plotting things
+  if(any(attributes(fit)$class == "coxme")){ # all coxme plotting things
     if(type == "frailty"){
         temp.df <- data.frame(id = names(fit$frail$id), frailty = fit$frail$id)
         
