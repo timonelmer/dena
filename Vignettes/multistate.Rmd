@@ -1,0 +1,101 @@
+---
+title: "Analyses of two mode multistate model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{simdat_analyses}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+load(file = "../m_cmm_vignette.RData")
+
+
+# and other packages that we need for visualization
+library(ggplot2)
+library(survival)
+library(coxme)
+require(coxed)
+```
+
+```{r setup}
+
+# load the dena package with the data and functions
+library(dena)
+
+```
+
+load the example data
+
+```{r}
+rm(list = ls())
+data("DartmouthStudentLife")
+
+# the data is from 
+# Wang, R., Chen, F., Chen, Z., Li, T., Harari, G., Tignor, S., Zhou, X., 
+#   Ben-Zeev, D., & Campbell, A. T. (2014). 
+#   Studentlife: Assessing mental health, academic performance and behavioral
+#   trends of college students using smartphones. UbiComp 2014 - 
+#   Proceedings of the 2014 ACM International Joint Conference on
+#   Pervasive and Ubiquitous Computing, 3–14. https://doi.org/10.1145/2632048.2632054
+
+head(dat)
+
+```
+
+the following analyses correspond closely with those reported in Elmer and Lodder (2022).
+
+## some descriptives ##
+
+# number of interactions per participant and day
+```{r}
+tmp <- dat %>% group_by(uid,state) %>% summarise(sum = length(uid))
+mean(as.numeric(tmp[tmp$state == "interaction","sum"][[1]]), na.rm = T)
+sd(as.numeric(tmp[tmp$state == "interaction","sum"][[1]]), na.rm = T)
+
+tmp <- dat %>% group_by(uid,state, date) %>% summarise(sum = length(uid))
+mean(as.numeric(tmp[tmp$state == "interaction","sum"][[1]]), na.rm = T)
+sd(as.numeric(tmp[tmp$state == "interaction","sum"][[1]]), na.rm = T)
+
+# mean and SD of interaction / alone duration
+mean(dat[dat$state == "interaction", "duration.state"], na.rm = T)
+sd(dat[dat$state == "interaction", "duration.state"], na.rm = T)
+
+mean(dat[dat$state == "alone", "duration.state"], na.rm = T)
+sd(dat[dat$state == "alone", "duration.state"], na.rm = T)
+
+
+# time of the day plot
+ggplot(dat, aes(x=as.POSIXct(format(as.POSIXct(start), "%H:%M:%S"),format="%H:%M"))) + 
+  geom_histogram( fill="lightblue", binwidth = 15*60,  # 15 min *60 sec/min
+                  color="grey50") + 
+  xlab("Time of the day")
+
+```
+
+##### Multistate Models ####
+
+```{r}
+### checks for multistate model
+check <- survcheck(Surv(start.time, end.time, to) ~ 1, 
+                   data = dat, id = uid, istate = state)
+checks <- !(1:nrow(dat) %in% check$overlap$row) & !(1:nrow(dat) %in% check$gap$row) &!(1:nrow(dat) %in% check$teleport$row) 
+
+# multistate method from the survival package (package manual, Therneau, 2020, p 61)
+m1 <-coxph(Surv(start.time, end.time, to) ~ 
+             I(duration_mean_window7200/60) +
+             weekend+
+             morning + afternoon + evening +
+             start_length_window86400 +  
+             start_length_window7200, 
+           data = dat[checks,], 
+           id = uid, istate = state)
+
+m1
+
+```
