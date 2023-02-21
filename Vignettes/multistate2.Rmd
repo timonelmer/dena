@@ -1,0 +1,126 @@
+---
+title: "Exemplary multistate model with three states and all direct transitions in between"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{simdat_analyses}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+load(file = "../m_cmm_vignette.RData")
+
+
+# and other packages that we need for visualization
+library(survival)
+
+```
+
+```{r setup}
+
+# load the dena package with the data and functions
+library(dena)
+
+```
+
+load the example data
+
+```{r}
+rm(list = ls())
+
+data(simdat2)
+
+
+```
+
+first we need to restructure the data a bit (i.e., add a variable that indicates the previous state (in the
+ tutorial example we assumed that the previous state is always the alone state))
+
+```{r}
+# 
+for(id in unique(simdat2$id)){
+  tmp <- simdat2[simdat2$id %in% id,]
+  tmp$from <- c(NA,as.character(tmp$type[-nrow(tmp)]))
+  simdat2[simdat2$id %in% id,"from"] <- tmp$from
+  
+  # and some restructuring of the time variable
+  for(row in 1:nrow(tmp)){
+    if(row == 1){
+      tmp$start[1] <- 0
+      tmp$end[1] <- tmp$time[1]
+    }else{
+      tmp$start[row] <- tmp$end[row-1]
+      tmp$end[row] <- tmp$start[row]+tmp$time[row]
+    }
+  }
+  simdat2[simdat2$id %in% id,"start"] <- tmp$start
+  simdat2[simdat2$id %in% id,"end"] <- tmp$end
+}
+
+
+
+```
+
+Now we have all the necessary variables in the correct format for mutlsitate analysis:
+
+```{r}
+head(simdat2[,c("id","start","end","from","type","Covariate1","Covariate2","Covariate3")])
+```
+
+#### Some Descriptives ####
+
+
+```{r}
+descriptives <- survcheck(Surv(start, end, type) ~ 1, 
+                   data = simdat2, id = id, istate = from)
+
+descriptives
+```
+
+##### Multistate Models ####
+
+```{r}
+
+# multistate method from the survival package (package manual, Therneau, 2020, p 61)
+m1 <-coxph(Surv(start, end, type) ~ 
+             Covariate1 + Covariate2 + Covariate3, 
+           data = simdat2, 
+           id = id, istate = from)
+
+```
+
+Apparently this warning is only to be taken serious if a coefficient is actually "Inf" (see [here](https://stat.ethz.ch/pipermail/r-help/2008-September/174201.html)  and [here](https://stackoverflow.com/questions/19369314/r-coxph-warning-loglik-converged-before-variable)). The large coefficients come from the fact that this data is simulated and has a large coefficients forillustration purposes.
+
+Lets look at the model output:
+
+```{r}
+
+m1
+
+```
+
+The numbers 1 to 3 correspond to the states (1) Family, (2) Friend, and (3) Partner. The model output shows the hazard ratios for the covariates separate for each transition between the three states. For example, in the transition from (1) Family to (2) Friend, only the Covariate 1 shows a significant effect (beta = 0.889, SE = 0.384, p = 0.021). 
+
+
+with the following function, one can also transform the multistate output model into a more reader-friendly table
+```{r}
+to.paper.table <- function(m1, digits = 3){
+  tmp <- as.data.frame(summary(m1)$coefficients)
+  tmp$names <- rownames(summary(m1)$cmap)
+  
+  transitions <- do.call(rbind.data.frame, strsplit(rownames(tmp),"_"))[2]
+  tmp$from <- c("Family","Friend","Partner")[as.numeric(substr(as.vector(transitions[,1]),1,1))]
+  tmp$to <- c("Family","Friend","Partner")[as.numeric(substr(as.vector(transitions[,1]),3,3))]
+  tmp$sig <- ifelse(tmp$`Pr(>|z|)`> 0.05, "",ifelse(tmp$`Pr(>|z|)` > 0.01,"*",ifelse(tmp$`Pr(>|z|)` > 0.001,"**","***")))
+  tmp$coef.LB <- tmp$coef-1.96*tmp$`robust se`
+  tmp$coef.UB <- tmp$coef+1.96*tmp$`robust se`
+  tmp[,c("from", "to","names","coef","sig","robust se","Pr(>|z|)","coef.LB","coef.UB")]
+}
+
+to.paper.table(m1)
+```
