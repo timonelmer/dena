@@ -1,0 +1,109 @@
+---
+title: "Exemplary multistate model with non-exclusive categories"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{simdat_analyses}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+load(file = "../m_cmm_vignette.RData")
+
+
+# and other packages that we need for estimation and visualization
+library(survival)
+
+```
+
+This vignette aims to describe how one can analyze multistate frailty models
+in which one target category (e.g., interacting with one's partner
+and family members at the same time) consists of the combination of other categories.  
+
+```{r setup}
+
+# load the dena package with the data and functions
+library(dena)
+
+```
+
+## load the example data 
+
+```{r}
+rm(list = ls())
+
+data(simdat4) # see the end of the script for simulation code 
+
+
+```
+
+this dataset contains transition from the alone state to four different target states 
+(1= family, 2= friend, 3= partner, 4= partner + family). This is a particular case of a
+multistate model, where still all categories are competing against each other, but one
+category (i.e., "partner + family") consists of the combination of two other categories. 
+
+The ```type```variable in the dataset describes these target states: 
+
+```{r}
+head(simdat4)
+
+table(simdat4$type)
+
+
+```
+
+
+## Estimating the multistate model
+
+From a modeling perspective, there are no differences, compared to a standard application of the
+multistate model, only that now there is a combined category of target states, of which the 
+coefficients need to be interpreted in the light of the data collection process.
+
+
+```{r, message = F}
+
+m.cmm <- cmm(Surv(time, type) ~ Covariate1 + Covariate2 + (1 | id), dat = simdat4, verbose = T)
+
+```
+
+Here are the estimated fixed effects of the model:
+
+```{r, message = F}
+
+m.cmm[[1]]
+
+
+```
+
+or as a plot of the fixed effects:
+
+```{r, message = F, warning = F, fig.width= 7, fig.height=7}
+plot.cmm(m.cmm[[1]])
+
+```
+
+### Dataset simulation 
+
+```{r, eval = F}
+
+
+set.seed(921)
+simdat4 <- frailtySurv::genfrail(N = 100, K = 50, 
+                                 beta = c(log(1), -log(0.5)),
+                                 frailty = "gamma", theta = 2, 
+                                 censor.rate = 0,
+                                 lambda_0=function(t, tau=4.6, C=0.01) (tau*(C*t)^tau)/t)
+
+colnames(simdat4) <- c("id","rep","time","event","Covariate1","Covariate2")
+simdat4$type <- factor(sample(c("partner", "family", "partner + family","friend"), nrow(simdat4), replace = T, prob = c(0.2,0.3,0.2,0.3)))
+
+#save(simdat4, file = "../data/simdat4.RData")
+
+
+```
+

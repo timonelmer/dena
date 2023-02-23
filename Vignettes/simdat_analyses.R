@@ -7,6 +7,7 @@ rm(list = ls())
 library(dena)
 library(ggplot2)
 library(survival)
+library(survminer)
 library(coxme)
 data(simdat) # the  Rcode to simulate this dataset can be found at the bottom
 # of this script
@@ -29,7 +30,7 @@ coxR2(fit) # computes the pseudo r-squared (based on the cox-snell method)
 ## Schoenfeld test for proportional hazard assumtion ##
 # should be non-significant for proportional hazard assumption to hold
 cox.zph(fit) 
-survminer::ggcoxzph(cox.zph(fit)) # a plot of the residuals
+ggcoxzph(cox.zph(fit)) # a plot of the residuals
 
 #### Frailty models ####
 data(simdat2) # the  Rcode to simulate this dataset can be found at the bottom
@@ -62,31 +63,6 @@ m.coxph <- coxph(Surv(time, event) ~ Covariate1 + Covariate2 + frailty(id), simd
 m.coxme <- coxme::coxme(Surv(time, event) ~ Covariate1 + Covariate2 + (1 | id), simdat2)
 plot(survfit(Surv(time, event) ~ Covariate1 + Covariate2 , data = simdat2), fun = "cumhaz")
 
-fit <- 
-  cmprsk::cuminc(
-    ftime = simdat2$time, 
-    fstatus = simdat2$type, 
-    group = simdat2$id,
-    cencode = 2
-  )
-
-ggcompetingrisks(
-  fit = fit, 
-  multiple_panels = FALSE,
-  ylim = c(0, 1)
-)
-
-# survivalFunctionMultiple <- function(dat, timeVar =  "time",  eventVar = "event", idVar = "id", toVar = "type"){
-#   for(id in unique(dat[,idVar])){
-#     for(to in unique(dat[,toVar])){
-#       tmp <- dat[dat[,idVar] %in% id & dat[,toVar] %in% to,]
-#       survivalFunction(dat = tmp,timeVar =  "time",  eventVar = "event", returnDF = T)
-#     }
-#     
-#   }
-# }
-# survivalFunctionMultiple(simdat2)
-
 
 # with the frailtyEM
 m.frailtyEM <- frailtyEM::emfrail(Surv(time, event) ~ Covariate1 + Covariate2 + cluster(id), simdat2)
@@ -96,13 +72,45 @@ tmp <- cbind(m.dena[[1]]$coef[1:2], m.coxme$coefficients[1:2],m.coxph$coefficien
 colnames(tmp) <- c("dena","coxme","coxph","fraityEM")
 tmp
 
+## model diagnostics ##
+
+## proportional hazard assumption
+cox.zph(m.coxph)
+ggcoxzph(cox.zph(m.coxph)) # a plot of the residuals
+ggsave(filename = paste0("~/polybox/RUG/01_writing/EventInteractionModel/plots/frail_schoenfeld_",Sys.Date(),".pdf"))
+
+
+## Testing non-linearity of continuous variables
+ggcoxdiagnostics(m.coxph, type = "martingale")
+ggsave(filename = paste0("~/polybox/RUG/01_writing/EventInteractionModel/plots/frail_martingale_",Sys.Date(),".pdf"))
+
+## outlier observations
+ggcoxdiagnostics(m.coxph, type = "deviance")
+ggsave(filename = paste0("~/polybox/RUG/01_writing/EventInteractionModel/plots/frail_deviance_",Sys.Date(),".pdf"))
+
 ### Multistate model ####
-m.cmm <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), dat = simdat2)
+m.cmm <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + (1 | id), dat = simdat2, verbose = T)
+m.cmm <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), dat = simdat2, verbose = T)  # alternative writing of frailty term
 plot.cmm(m.cmm[[1]])
 
 m <- multistate(Surv(time, type) ~ Covariate2 + Covariate3 + cluster(id), simdat2, verbose = T)  
 plot.cmm(m[[1]])
 
+## model diagnostics ##
+## proportional hazard assumption
+ggcoxzph(cox.zph(m.cmm[[2]][[1]]), caption ="Submodel: alone to family") # for the alone to family model; Figure in the Supplementary Materials
+ggcoxzph(cox.zph(m.cmm[[2]][[2]]), caption ="Submodel: alone to friend") # for the alone to friend model
+ggcoxzph(cox.zph(m.cmm[[2]][[3]]), caption ="Submodel: alone to partner") # for the alone to partner model
+
+## Testing non-linearity of continuous variables
+ggcoxdiagnostics(m.cmm[[2]][[1]], type = "martingale", title ="Submodel: alone to family") # Figure in the Supplementary Materials
+ggcoxdiagnostics(m.cmm[[2]][[2]], type = "martingale", title ="Submodel: alone to frined")
+ggcoxdiagnostics(m.cmm[[2]][[3]], type = "martingale", title ="Submodel: alone to partner")
+
+## outlier observations (Xue and Schifano, 2017 use +- 1.96 as outlier indication)
+ggcoxdiagnostics(m.cmm[[2]][[1]], type = "deviance", title ="Submodel: alone to family")#  Figure in the Supplementary Materials
+ggcoxdiagnostics(m.cmm[[2]][[2]], type = "deviance", title ="Submodel: alone to frined")
+ggcoxdiagnostics(m.cmm[[2]][[3]], type = "deviance", title ="Submodel: alone to partner")
 
 ### Simulation of the simdata dataset ###
 
@@ -141,3 +149,4 @@ simdat2$type <- factor(sample(c("partner","friend","family"), nrow(simdat2), rep
 simdat2$Covariate3 <- ifelse(simdat2$type == "partner" & simdat2$time < 200,1,0) + 
   rnorm(nrow(simdat2),mean = 0.2, sd = 0.2)
 #save(simdat2, file = "data/simdat2.RData")
+

@@ -28,25 +28,27 @@ library(dena)
 
 ```
 
-load the example data
+## Load the example data
 
 ```{r}
 rm(list = ls())
 
-data(simdat2)
+data(simdat3) # see the end of the script for simulation code 
 
 
 ```
+
+## Restructuring data 
 
 first we need to restructure the data a bit (i.e., add a variable that indicates the previous state (in the
  tutorial example we assumed that the previous state is always the alone state))
 
 ```{r}
 # 
-for(id in unique(simdat2$id)){
-  tmp <- simdat2[simdat2$id %in% id,]
+for(id in unique(simdat3$id)){
+  tmp <- simdat3[simdat3$id %in% id,]
   tmp$from <- c(NA,as.character(tmp$type[-nrow(tmp)]))
-  simdat2[simdat2$id %in% id,"from"] <- tmp$from
+  simdat3[simdat3$id %in% id,"from"] <- tmp$from
   
   # and some restructuring of the time variable
   for(row in 1:nrow(tmp)){
@@ -58,8 +60,8 @@ for(id in unique(simdat2$id)){
       tmp$end[row] <- tmp$start[row]+tmp$time[row]
     }
   }
-  simdat2[simdat2$id %in% id,"start"] <- tmp$start
-  simdat2[simdat2$id %in% id,"end"] <- tmp$end
+  simdat3[simdat3$id %in% id,"start"] <- tmp$start
+  simdat3[simdat3$id %in% id,"end"] <- tmp$end
 }
 
 
@@ -69,32 +71,36 @@ for(id in unique(simdat2$id)){
 Now we have all the necessary variables in the correct format for mutlsitate analysis:
 
 ```{r}
-head(simdat2[,c("id","start","end","from","type","Covariate1","Covariate2","Covariate3")])
+head(simdat3[,c("id","start","end","from","type","Covariate1","Covariate2")])
 ```
 
-#### Some Descriptives ####
+## Some descriptives 
 
 
 ```{r}
 descriptives <- survcheck(Surv(start, end, type) ~ 1, 
-                   data = simdat2, id = id, istate = from)
+                   data = simdat3, id = id, istate = from)
 
 descriptives
 ```
 
-##### Multistate Models ####
+## Multistate estimation
 
 ```{r}
-
+simdat3$from <- factor(simdat3$from, levels = c("censored", "alone","family","friend","partner"))
+simdat3$type <- factor(simdat3$type, levels = c("censored", "alone","family","friend","partner"))
 # multistate method from the survival package (package manual, Therneau, 2020, p 61)
 m1 <-coxph(Surv(start, end, type) ~ 
-             Covariate1 + Covariate2 + Covariate3, 
-           data = simdat2, 
+             Covariate1 + Covariate2, 
+           data = simdat3, 
            id = id, istate = from)
+
+m1
+
 
 ```
 
-Apparently this warning is only to be taken serious if a coefficient is actually "Inf" (see [here](https://stat.ethz.ch/pipermail/r-help/2008-September/174201.html)  and [here](https://stackoverflow.com/questions/19369314/r-coxph-warning-loglik-converged-before-variable)). The large coefficients come from the fact that this data is simulated and has a large coefficients forillustration purposes.
+<!-- Apparently this warning is only to be taken serious if a coefficient is actually "Inf" (see [here](https://stat.ethz.ch/pipermail/r-help/2008-September/174201.html)  and [here](https://stackoverflow.com/questions/19369314/r-coxph-warning-loglik-converged-before-variable)). The large coefficients come from the fact that this data is simulated and has a large coefficients forillustration purposes. -->
 
 Lets look at the model output:
 
@@ -104,23 +110,43 @@ m1
 
 ```
 
-The numbers 1 to 3 correspond to the states (1) Family, (2) Friend, and (3) Partner. The model output shows the hazard ratios for the covariates separate for each transition between the three states. For example, in the transition from (1) Family to (2) Friend, only the Covariate 1 shows a significant effect (beta = 0.889, SE = 0.384, p = 0.021). 
+The numbers 1 to 5 correspond to the states (1) Alone, (2) Family, (3) Friend, and (4) Partner. The model output shows the hazard ratios for the covariates separate for each transition between the three states. For example, in the transition from (4) Partner to (2) Family, only the Covariate 1 shows a significant effect (beta = -0.195, SE = 0.078, p = 0.005). 
 
 
-with the following function, one can also transform the multistate output model into a more reader-friendly table
+With the following function, one can also transform the multistate output model into a more reader-friendly table
 ```{r}
 to.paper.table <- function(m1, digits = 3){
   tmp <- as.data.frame(summary(m1)$coefficients)
   tmp$names <- rownames(summary(m1)$cmap)
   
   transitions <- do.call(rbind.data.frame, strsplit(rownames(tmp),"_"))[2]
-  tmp$from <- c("Family","Friend","Partner")[as.numeric(substr(as.vector(transitions[,1]),1,1))]
-  tmp$to <- c("Family","Friend","Partner")[as.numeric(substr(as.vector(transitions[,1]),3,3))]
+  tmp$from <- summary(m1)$states[as.numeric(substr(as.vector(transitions[,1]),1,1))]
+  tmp$to <- summary(m1)$states[as.numeric(substr(as.vector(transitions[,1]),3,3))]
   tmp$sig <- ifelse(tmp$`Pr(>|z|)`> 0.05, "",ifelse(tmp$`Pr(>|z|)` > 0.01,"*",ifelse(tmp$`Pr(>|z|)` > 0.001,"**","***")))
   tmp$coef.LB <- tmp$coef-1.96*tmp$`robust se`
   tmp$coef.UB <- tmp$coef+1.96*tmp$`robust se`
-  tmp[,c("from", "to","names","coef","sig","robust se","Pr(>|z|)","coef.LB","coef.UB")]
+  round_df(tmp[,c("from", "to","names","coef","sig","robust se","Pr(>|z|)","coef.LB","coef.UB")],digits = digits)
 }
 
 to.paper.table(m1)
+```
+
+### Dataset simulation 
+
+```{r, eval = F}
+
+
+set.seed(5689)
+simdat3 <- frailtySurv::genfrail(N = 50, K = 40, 
+                                 beta = c(log(0.5), -log(1)),
+                                 frailty = "gamma", theta = 3, 
+                                 censor.rate = 0,
+                                 lambda_0=function(t, tau=4.6, C=0.01) (tau*(C*t)^tau)/t)
+
+colnames(simdat3) <- c("id","rep","time","event","Covariate1","Covariate2")
+simdat3$type <- factor(sample(c("partner", "family","friend", "alone"), nrow(simdat3), replace = T, prob = c(0.2,0.2,0.2,0.3)))
+
+#save(simdat3, file = "../data/simdat3.RData")
+
+
 ```
