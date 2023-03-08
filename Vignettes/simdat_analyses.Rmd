@@ -20,6 +20,7 @@ load(file = "../m_cmm_vignette.RData")
 library(ggplot2)
 library(survival)
 library(coxme)
+library(survminer)
 require(coxed)
 ```
 
@@ -112,6 +113,20 @@ tmp
 
 ```
 
+### Model Diagnostics 
+
+```{r, fig.width = 6, fig.height = 5}
+## proportional hazard assumption
+cox.zph(m.coxph)
+ggcoxzph(cox.zph(m.coxph)) # a plot of the residuals
+
+## Testing non-linearity of continuous variables
+ggcoxdiagnostics(m.coxph, type = "martingale")
+
+## outlier observations
+ggcoxdiagnostics(m.coxph, type = "deviance")
+```
+
 ## Multistate model 
 
 Now, let us take the type of interaction into account. The following histogram shows the waiting times per interaction type:
@@ -125,6 +140,7 @@ with the cmm function we can estimate a multistate model with one starting state
 ```{r, eval = F}
 
 m.cmm <- dena::cmm(Surv(time, type) ~ Covariate2 + Covariate3 + (1|id), dat = simdat2)
+
 
 m.coxph2 <- coxph(Surv(time, event) ~ Covariate2 + Covariate3, simdat2) # without frailty
 
@@ -176,9 +192,30 @@ m.cmm[[4]] # frailty estimates
 
 ```
 
+```{r, eval =T, echo= F}
+m.cmm <- cmm(Surv(time, type) ~ Covariate2 + Covariate3 + frailty(id), dat = simdat2, verbose = T)  # alternative writing of frailty term
+```
 
+### Model Diagnostics
 
-# Simulation of the simdata dataset 
+```{r, fig.width = 6, fig.height = 5}
+# proportional hazard assumption
+ggcoxzph(cox.zph(m.cmm[[2]][[1]]), caption ="Submodel: alone to family") # for the alone to family model; Figure in the Supplementary Materials
+ggcoxzph(cox.zph(m.cmm[[2]][[2]]), caption ="Submodel: alone to friend") # for the alone to friend model
+ggcoxzph(cox.zph(m.cmm[[2]][[3]]), caption ="Submodel: alone to partner") # for the alone to partner model
+
+## Testing non-linearity of continuous variables
+ggcoxdiagnostics(m.cmm[[2]][[1]], type = "martingale", title ="Submodel: alone to family") # Figure in the Supplementary Materials
+ggcoxdiagnostics(m.cmm[[2]][[2]], type = "martingale", title ="Submodel: alone to frined")
+ggcoxdiagnostics(m.cmm[[2]][[3]], type = "martingale", title ="Submodel: alone to partner")
+
+## outlier observations (Xue and Schifano, 2017 use +- 1.96 as outlier indication)
+ggcoxdiagnostics(m.cmm[[2]][[1]], type = "deviance", title ="Submodel: alone to family")#  Figure in the Supplementary Materials
+ggcoxdiagnostics(m.cmm[[2]][[2]], type = "deviance", title ="Submodel: alone to frined")
+ggcoxdiagnostics(m.cmm[[2]][[3]], type = "deviance", title ="Submodel: alone to partner")
+```
+
+## Simulation of the simdata dataset 
 ```{r, }
 
 set.seed(44)
