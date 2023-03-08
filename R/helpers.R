@@ -283,4 +283,11 @@ coxR2 <- function(fit){
 }
 
 
-
+ 
+round_df <- function(df, digits) { # from akhmed @stackoverflow
+  nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
+  
+  df[,nums] <- round(df[,nums], digits = digits)
+  
+  (df)
+}
