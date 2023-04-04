@@ -1,0 +1,19 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: dena
+message: '- dynamic egocentric network analysis'
+type: software
+authors:
+  - given-names: Timon
+    family-names: Elmer
+    email: timon.elmer@gmail.com
+    affiliation: ETH Zürich
+    orcid: 'https://orcid.org/0000-0003-4354-4457'
+repository-code: 'https://github.com/timonelmer/dena'
+abstract: >-
+  dena is an R package that aids in preprocessing, modeling,
+  and visualization of categorical time-to-event data and
+  egocentric social network dynamics
+date-released: '2023-04-03'
